@@ -47,7 +47,10 @@ jobs:
         run: cargo test -p radveil-core --release
         env:
           RADVEIL_SIMD: "off"
-      - run: cargo build --workspace --release --all-features
+      # radveil-capi's lib and radveil-cli's bin are both named `radveil`;
+      # on MSVC they would write the same radveil.pdb, so link them apart
+      - run: cargo build --workspace --release --all-features --exclude radveil-capi
+      - run: cargo build -p radveil-capi --release --all-features
       - name: Inference benchmark (informational)
         run: cargo run --release --example nn_bench -p radveil-core
       - name: C API smoke test
