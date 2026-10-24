@@ -29,7 +29,7 @@ from __future__ import annotations
 import hashlib
 import os
 import warnings
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import numpy as np
 
@@ -275,9 +275,9 @@ def _world_at(view: dict, x: float, y: float, max_radius: int = 4, anatomical: b
 
 
 def lift_landmarks(
-    views: Sequence[dict],
+    views: Sequence[dict[str, Any]],
     landmarks_2d: Sequence[Optional[np.ndarray]],
-) -> list:
+) -> list[Optional[tuple[float, float, float]]]:
     """Lift per-view 2D landmarks to 3D world space through the views'
     position maps and combine them (coordinate-wise median across views).
 
@@ -328,7 +328,7 @@ def deface_volume(
     yaws: Sequence[float] = (-20.0, 0.0, 20.0),
     pitch: float = 0.0,
     size: int = 512,
-    detector="mediapipe",
+    detector: str = "mediapipe",
     predictor_path: Optional[str] = None,
     fallback_detector=None,
     fallback_brain_guard: bool = True,
@@ -481,7 +481,7 @@ def anonymization_mask(
     yaws: Sequence[float] = (-20.0, 0.0, 20.0),
     pitch: float = 0.0,
     size: int = 512,
-    detector="mediapipe",
+    detector: str = "mediapipe",
     predictor_path: Optional[str] = None,
     brain_check: bool = False,
     brain_guard: bool = False,

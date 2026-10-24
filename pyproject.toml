@@ -31,3 +31,4 @@ module-name = "radveil._radveil"
 python-source = "python"
 features = ["extension-module"]
 strip = true
+include = ["python/radveil/py.typed"]
