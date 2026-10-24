@@ -1,0 +1,11 @@
+# cargo-audit configuration (see docs/sbom.md, "Vulnerability handling").
+#
+# Every ignored advisory is a triage decision and needs a comment:
+# advisory ID, affected crate/version, why RadVeil is not affected (e.g.
+# the vulnerable function is never called), who decided, and when. Prefer
+# upgrading; ignore only when no fixed version exists or the upgrade is
+# scheduled. Review this list at every release.
+
+[advisories]
+ignore = []
+informational_warnings = ["unmaintained", "unsound", "yanked"]
