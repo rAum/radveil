@@ -1,0 +1,25 @@
+[package]
+name = "radveil-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "CLI for radveil: NIfTI face rendering and anonymization"
+keywords = ["nifti", "mri", "defacing", "anonymization", "cli"]
+categories = ["command-line-utilities", "science"]
+readme = "../../README.md"
+
+[[bin]]
+name = "radveil"
+path = "src/main.rs"
+
+[dependencies]
+radveil-core.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+nifti.workspace = true
+ndarray.workspace = true
