@@ -1,0 +1,49 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    # The demo (site/demo) embeds the Rust pipeline, so core changes redeploy it.
+    paths: ["site/**", "crates/radveil-core/**", "crates/radveil-wasm/**", "Cargo.lock", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Install wasm-bindgen CLI (version pinned by Cargo.lock)
+        run: |
+          v=$(awk '/^name = "wasm-bindgen"$/{getline; gsub(/[^0-9.]/,""); print}' Cargo.lock)
+          cargo install wasm-bindgen-cli --version "$v" --locked
+      - name: Build the in-browser demo
+        run: crates/radveil-wasm/build.sh
+      # The demo serves the embedded MediaPipe weights to every visitor:
+      # Apache-2.0 4(a)/(d) wants the license and NOTICE alongside.
+      - name: License files
+        run: |
+          cp LICENSE site/LICENSE.txt
+          cp NOTICE site/NOTICE.txt
+          cp THIRD_PARTY_LICENSES.txt site/
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
