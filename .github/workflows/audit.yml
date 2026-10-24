@@ -1,0 +1,30 @@
+name: Security audit
+
+# Checks Cargo.lock against the RustSec advisory database: on dependency
+# changes, and weekly so advisories published after a release are caught
+# for the code already shipped. See docs/sbom.md.
+
+on:
+  push:
+    branches: [main, master]
+    paths: ["**/Cargo.toml", "Cargo.lock", ".cargo/audit.toml", ".github/workflows/audit.yml"]
+  pull_request:
+    paths: ["**/Cargo.toml", "Cargo.lock", ".cargo/audit.toml", ".github/workflows/audit.yml"]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2
+        with:
+          tool: cargo-audit
+      # Fails on any vulnerability not triaged in .cargo/audit.toml;
+      # unmaintained/yanked crates are reported as warnings.
+      - run: cargo audit
