@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # x86_64 (AVX2 kernels) on all three OSes, aarch64 (NEON) on Linux
+        # and macOS
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          lfs: true  # scan test data (*.nii*, *.nrrd, ...) is in Git LFS
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # radveil-py's test binary links libpython
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: cargo fmt --all --check
+      - name: Third-party license notices are complete and allowed
+        if: runner.os == 'Linux'
+        run: python3 tools/third_party_licenses.py --check
+      - name: SBOMs generate and validate (CycloneDX 1.6)
+        if: runner.os == 'Linux'
+        run: |
+          pip install "cyclonedx-python-lib[json-validation]"
+          python3 tools/sbom.py --validate
+      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --workspace --release --locked
+      - name: Tests on the portable (non-intrinsics) kernels
+        run: cargo test -p radveil-core --release
+        env:
+          RADVEIL_SIMD: "off"
+      - run: cargo build --workspace --release --all-features
+      - name: Inference benchmark (informational)
+        run: cargo run --release --example nn_bench -p radveil-core
+      - name: C API smoke test
+        if: runner.os != 'Windows'
+        run: |
+          cc -O2 -I crates/radveil-capi/include crates/radveil-capi/examples-c/smoke.c              -L target/release -lradveil -lm -o smoke
+          LD_LIBRARY_PATH=target/release DYLD_LIBRARY_PATH=target/release ./smoke
+
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@18f0487477426dce244608110aa2660c2893deb7 # 1.98
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo check --workspace --all-targets --locked
+
+  cross-check:
+    # Pure-Rust build (no C toolchain needed): make sure other server
+    # architectures, including big-endian s390x, keep compiling.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - riscv64gc-unknown-linux-gnu
+          - powerpc64le-unknown-linux-gnu
+          - s390x-unknown-linux-gnu
+          - i686-unknown-linux-gnu
+          - aarch64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo check -p radveil-core -p radveil-cli -p radveil-capi --release --target ${{ matrix.target }}
+
+  python:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+        # abi3 wheel: one build serves every CPython >= 3.9; test both ends
+        python: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          lfs: true
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install maturin numpy nibabel pytest pillow
+      - run: maturin build --release --out dist
+      - run: pip install --no-index --find-links dist radveil
+      - run: pytest tests/ -v
+      - name: Tests on the portable kernels
+        run: pytest tests/ -q
+        env:
+          RADVEIL_SIMD: "off"
