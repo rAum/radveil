@@ -141,7 +141,5 @@ runtime; the binary fixtures in `crates/radveil-core/tests/data/` are
 seeded random inputs, a random-weight test model and the matching
 reference outputs. The brain-safety and re-detection figures in the
 documentation and on the website come from the public SynthStrip
-evaluation set (`experiments/face_brain_safety.py`); the ear figures were
-measured on public IXI scans (`experiments/ears/`) and one clinical scan
-that is not distributed: the author's private scan. Publishing figures that show a recognizable
-(pre-defacing) face requires the subject's consent.
+evaluation set; the ear figures were measured on public IXI scans and one clinical scan that is not distributed (the author's private head scan).
+Publishing figures that show a recognizable (pre-defacing) face requires the subject's consent.

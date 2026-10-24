@@ -82,13 +82,13 @@ render's position map: pinna centre `v` −0.39 ± 0.19·d, `w` −1.50 ±
 0.12·d; pinna surface (2nd-98th percentile) `v` −1.37..0.66·d, `w`
 −2.19..−0.82·d. The clinical scan lies inside the IXI spread in this frame.
 
-**Measured** (block mode, IXI T1 + the clinical T1, 108 ears): 107 detected, every
+**Measured** (block mode, [IXI T1](https://brain-development.org/ixi-dataset/) + the clinical author's head T1, 108 ears): 107 detected, every
 detected blob centred on the marked pinna, ≥95% of the marked pinna
 surface inside the ROI for all 108 (median 99.0%); 0 voxels of the
-SynthStrip expert brain masks modified on the 50 IXI T1 that have them
+SynthStrip expert brain masks modified on the 50 [XI T1 that have them
 (clearance median 4.8 mm, 5th percentile 2.6 mm). Across the other 185
 processable SynthStrip MRI scans (T1/T2/PD, adult and infant) 8 touch
-the expert mask, at most 55 voxels (0.055 ml) — 5 are IXI T2, where the
+the expert mask, at most 55 voxels (0.055 ml) — 5 are [IXI T2](https://brain-development.org/ixi-dataset/), where the
 scalp beside the ear is thin and dim, and one is an FSM scan whose prior
 defacing left the brain at the surface. With `brain_guard` on, 7 of the
 8 drop to 0 (clearance ≥ 1.6 mm); the infant T1 drops from 22 to 6 voxels,
