@@ -1,0 +1,39 @@
+[package]
+name = "radveil-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "CPU-only NIfTI face renderer and anonymizer: orientation-aware volume rendering, 2D-3D landmark lifting, and defacing (blur/cut/block) that keeps all other voxels bit-exact"
+keywords = ["nifti", "mri", "defacing", "anonymization", "medical-imaging"]
+categories = ["science", "multimedia::images"]
+readme = "../../README.md"
+include = ["src/**/*.rs", "models/*.rvnn", "models/*.rvss", "models/*.rvb", "models/LICENSE-synthstrip", "models/README.md", "models/LICENSE", "Cargo.toml", "tests/**/*.rs", "LICENSE", "NOTICE", "THIRD_PARTY_LICENSES.txt"]
+
+[dependencies]
+nifti.workspace = true
+ndarray.workspace = true
+rayon.workspace = true
+multiversion = "0.8"
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+png.workspace = true
+flate2 = "1"
+matrixmultiply = { version = "0.3.11", optional = true }
+
+[features]
+default = ["detector", "synthstrip", "rvbrain"]
+# Built-in MediaPipe face detector (BlazeFace + Face Mesh v2, own pure-Rust engine).
+detector = ["dep:matrixmultiply"]
+# Built-in SynthStrip brain extraction (weights embedded, ~5 MB, pure Rust).
+synthstrip = ["dep:matrixmultiply"]
+# RadVeil's own small brain-extraction network, loaded from a .rvb file
+# (`radveil deskull --method rvbrain --model m.rvb`); see training/README.md.
+rvbrain = ["dep:matrixmultiply"]
+
+[[example]]
+name = "render_eval"
+required-features = ["detector"]

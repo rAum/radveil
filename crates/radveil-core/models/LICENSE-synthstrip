@@ -1,0 +1,42 @@
+SynthStrip model weights (models/synthstrip.1.rvss)
+
+Source:  https://surfer.nmr.mgh.harvard.edu/docs/synthstrip/requirements/synthstrip.1.pt
+         (SHA-256 37417f802196186441aae3e7f385d94f8a98c64a88acaeaa2723af995c653e33)
+Authors: A. Hoopes, J. S. Mora, A. V. Dalca, B. Fischl, M. Hoffmann
+Paper:   SynthStrip: Skull-Stripping for Any Brain Image. NeuroImage 260 (2022)
+         119474. https://doi.org/10.1016/j.neuroimage.2022.119474
+
+The SynthStrip documentation states: "You can choose to access the weight
+files under either the MIT license or the CC BY 4.0 license". RadVeil uses
+them under the MIT license, reproduced below. The documentation names no
+copyright holder; the copyright line below names the paper's authors (the
+rights may be held by their institutions).
+
+Modification: converted by tools/export_synthstrip.py from the PyTorch
+checkpoint to RadVeil's .rvss layout, with weights rounded to float16
+(biases float32). The network is re-implemented in src/synthstrip.rs.
+Outputs match the PyTorch model to < 2e-3 mm on the test input.
+
+-------------------------------------------------------------------------------
+MIT License
+
+Copyright (c) 2022 The SynthStrip authors (A. Hoopes, J. S. Mora, A. V. Dalca,
+B. Fischl, M. Hoffmann)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
