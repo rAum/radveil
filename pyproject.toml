@@ -1,0 +1,33 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "radveil"
+description = "CPU-only NIfTI face renderer and anonymizer"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Piotr Gródek" }]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_LICENSES.txt"]
+dynamic = ["version"]
+dependencies = ["numpy>=1.22"]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+
+[project.urls]
+Homepage = "https://rAum.github.io/radveil/"
+Repository = "https://github.com/rAum/radveil"
+
+[project.optional-dependencies]
+dlib = ["dlib>=19.24"]
+
+[tool.maturin]
+manifest-path = "crates/radveil-py/Cargo.toml"
+module-name = "radveil._radveil"
+python-source = "python"
+features = ["extension-module"]
+strip = true
