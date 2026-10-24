@@ -1,0 +1,11 @@
+[package]
+name = "radveil-docs-examples"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+radveil-core = { path = "../../../../crates/radveil-core" }
+ndarray = "0.17"
+
+[workspace]

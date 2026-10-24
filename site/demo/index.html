@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RadVeil in the Browser</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Anonymize the face in a NIfTI head scan entirely in your browser. RadVeil runs as WebAssembly; the file is never uploaded.">
+<style>
+/* Self-hosted web fonts (SIL OFL 1.1) -- licenses and sources in ../fonts/README.md */
+@font-face{font-family:Archivo; font-style:normal; font-display:swap; font-weight:100 900; font-stretch:62% 125%;
+  src:url(../fonts/archivo-latin-wdth-normal.woff2) format("woff2-variations"), url(../fonts/archivo-latin-wdth-normal.woff2) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Source Serif 4"; font-style:normal; font-display:swap; font-weight:200 900;
+  src:url(../fonts/SourceSerif4Variable-Roman.ttf.woff2) format("woff2-variations"), url(../fonts/SourceSerif4Variable-Roman.ttf.woff2) format("woff2")}
+@font-face{font-family:"Source Serif 4"; font-style:italic; font-display:swap; font-weight:200 900;
+  src:url(../fonts/SourceSerif4Variable-Italic.ttf.woff2) format("woff2-variations"), url(../fonts/SourceSerif4Variable-Italic.ttf.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-display:swap; font-weight:400; src:url(../fonts/IBMPlexMono-Regular.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-display:swap; font-weight:500; src:url(../fonts/IBMPlexMono-Medium.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-display:swap; font-weight:600; src:url(../fonts/IBMPlexMono-SemiBold.woff2) format("woff2")}
+</style>
+<style>
+:root{
+  --ground:#0b0e11; --surface:#12171d; --surface2:#171e26; --line:#232c36;
+  --ink:#e8edf1; --muted:#8d99a6; --faint:#5b6773;
+  --accent:#4fd1bd; --accent-ink:#06201c; --ok:#6fc28a; --bad:#e2735f;
+  --mark:#44ff88;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --ground:#f4f4f1; --surface:#fdfdfb; --surface2:#ecece7; --line:#d9d9d2;
+    --ink:#20242a; --muted:#5c646e; --faint:#8a919b;
+    --accent:#0b7a6f; --accent-ink:#fff; --ok:#2f7d4a; --bad:#b5432f;
+  }
+}
+:root[data-theme="light"]{
+  --ground:#f4f4f1; --surface:#fdfdfb; --surface2:#ecece7; --line:#d9d9d2;
+  --ink:#20242a; --muted:#5c646e; --faint:#8a919b;
+  --accent:#0b7a6f; --accent-ink:#fff; --ok:#2f7d4a; --bad:#b5432f;
+}
+*{box-sizing:border-box;margin:0}
+body{background:var(--ground); color:var(--ink); font-family:"Source Serif 4",Georgia,serif; font-size:17px; line-height:1.6}
+a{color:var(--accent); text-decoration:none} a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
+.wrap{max-width:1060px; margin:0 auto; padding:0 24px}
+@media (max-width:600px){.wrap{padding:0 16px}}
+h1,h2,h3,.ui{font-family:Archivo,system-ui,sans-serif}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+.eyebrow{font-family:Archivo,sans-serif; font-stretch:118%; font-weight:640; font-size:.72rem; letter-spacing:.17em; text-transform:uppercase; color:var(--accent)}
+
+header{border-bottom:1px solid var(--line)}
+.nav{display:flex; align-items:baseline; gap:20px; padding-top:18px; padding-bottom:18px}
+.brand{font-family:Archivo,sans-serif; font-stretch:122%; font-weight:800; font-size:1.12rem; letter-spacing:.02em; color:var(--ink)}
+.brand span{color:var(--accent)}
+.nav .links{margin-left:auto; display:flex; gap:20px; font-family:Archivo,sans-serif; font-size:.86rem}
+.nav .links a{color:var(--muted)}
+
+.intro{padding:46px 0 26px; max-width:46em}
+.intro h1{font-size:clamp(1.8rem,4vw,2.6rem); font-weight:760; font-stretch:106%; margin:10px 0 12px; line-height:1.12}
+.intro p{color:var(--muted)}
+.private{display:inline-flex; gap:8px; align-items:center; margin-top:16px; font-family:Archivo,sans-serif; font-size:.85rem; color:var(--ok)}
+.private svg{flex:none}
+
+.app{display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:28px; padding-bottom:60px; align-items:start}
+@media (max-width:860px){.app{grid-template-columns:1fr}}
+
+.stage{position:relative; background:#000; border:1px solid var(--line); border-radius:10px; aspect-ratio:1; overflow:hidden; touch-action:none}
+.stage canvas{width:100%; height:100%; display:block; image-rendering:auto}
+.stage.has-scan canvas{cursor:grab} .stage.dragging canvas{cursor:grabbing}
+.drop{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center; padding:24px; color:#c4ccd4; font-family:Archivo,sans-serif; border:2px dashed transparent; border-radius:10px; cursor:pointer}
+.drop.over{border-color:var(--accent); background:rgba(79,209,189,.07)}
+.drop strong{font-size:1.15rem; color:#fff}
+.drop small{color:#7d8894}
+.stage.has-scan .drop{display:none}
+.badge{position:absolute; top:12px; left:12px; font-family:Archivo,sans-serif; font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; padding:4px 9px; border-radius:4px; background:rgba(0,0,0,.6); color:#fff; pointer-events:none}
+.badge.after{background:var(--accent); color:var(--accent-ink)}
+.hint{position:absolute; bottom:10px; left:0; right:0; text-align:center; font-family:Archivo,sans-serif; font-size:.75rem; color:#8994a0; pointer-events:none}
+.busy{position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); color:#fff; font-family:Archivo,sans-serif; gap:12px}
+.busy.on{display:flex}
+.spin{width:22px; height:22px; border:3px solid rgba(255,255,255,.25); border-top-color:#fff; border-radius:50%; animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spin{animation-duration:2.4s}}
+
+.panel{display:flex; flex-direction:column; gap:20px}
+.field label,.field .lbl{display:block; font-family:Archivo,sans-serif; font-size:.8rem; font-weight:600; color:var(--muted); margin-bottom:7px}
+.seg{display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; background:var(--surface)}
+.seg button{flex:1; padding:8px 6px; border:0; background:none; color:var(--muted); font:500 .85rem Archivo,sans-serif; cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--surface2); color:var(--ink); box-shadow:inset 0 -2px 0 var(--accent)}
+.seg button:disabled{cursor:default; opacity:.5}
+.desc{font-size:.85rem; color:var(--faint); margin-top:6px; line-height:1.45}
+.opt{display:block; font-size:.88rem; color:var(--ink); margin-top:8px; cursor:pointer}
+.opt input{accent-color:var(--accent); margin:0 6px 0 0; vertical-align:-1px}
+.opt span{display:block; padding-left:20px; font-size:.8rem; color:var(--faint); line-height:1.4}
+.btn{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:12px 16px; border-radius:7px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font:600 .95rem Archivo,sans-serif; cursor:pointer}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.btn:disabled{opacity:.45; cursor:default}
+.file{font-size:.85rem; color:var(--muted); word-break:break-all}
+.file b{color:var(--ink); font-weight:600}
+.msg{font-size:.9rem; padding:10px 12px; border-radius:7px; border:1px solid var(--line); background:var(--surface)}
+.msg.err{border-color:var(--bad); color:var(--bad)}
+.stats{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:7px; overflow:hidden}
+.stats div{background:var(--surface); padding:9px 11px}
+.stats dt{font-family:Archivo,sans-serif; font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; color:var(--faint)}
+.stats dd{font-family:"IBM Plex Mono",monospace; font-size:.9rem; margin:0}
+.view-toggle{margin-top:12px}
+
+.pairs{padding-bottom:70px}
+.pairs h2{font-size:1.25rem; font-weight:700; margin-bottom:6px}
+.pairs > p{color:var(--muted); font-size:.93rem; margin-bottom:18px}
+.pair-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:18px}
+.pair{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:10px}
+.pair .imgs{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+.pair canvas{width:100%; aspect-ratio:1; border-radius:5px; background:#000; display:block}
+.pair .cap{display:flex; justify-content:space-between; font-family:Archivo,sans-serif; font-size:.75rem; color:var(--faint); margin-top:7px}
+[hidden]{display:none !important}
+footer{border-top:1px solid var(--line); padding:22px 0 40px; color:var(--faint); font-size:.85rem}
+</style>
+<script>
+try { var t = localStorage.getItem("radveil-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body>
+<header><div class="wrap nav">
+  <a class="brand" href="../">Rad<span>Veil</span></a>
+  <nav class="links"><a href="../">Project</a><a href="https://github.com/rAum/radveil">GitHub</a></nav>
+</div></header>
+
+<main class="wrap">
+  <section class="intro">
+    <div class="eyebrow">Live demo</div>
+    <h1>Anonymize a head scan in your browser</h1>
+    <p>Drop a NIfTI file. RadVeil renders the head, finds the face with an embedded face detector, blurs or removes it, and then attacks its own output with the same detector until no face is found. This is the same Rust code as the command-line tool, compiled to WebAssembly.</p>
+    <div class="private">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 7V5a4 4 0 1 1 8 0v2" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="7" width="11" height="7.5" rx="1.5" fill="currentColor"/></svg>
+      Your file stays on this computer. Nothing is uploaded.
+    </div>
+  </section>
+
+  <div class="app">
+    <div>
+      <div class="stage" id="stage">
+        <canvas id="view" width="512" height="512" aria-label="3D surface render of the scan"></canvas>
+        <div class="drop" id="drop" role="button" tabindex="0">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+          <strong>Drop a .nii or .nii.gz file</strong>
+          <span>or click to choose one</span>
+          <small>3D head MRI or CT</small>
+        </div>
+        <span class="badge" id="badge" hidden>Original</span>
+        <span class="hint" id="hint" hidden>Drag to rotate · double-click to face front</span>
+        <div class="busy" id="busy"><div class="spin"></div><span id="busyText">Working…</span></div>
+      </div>
+      <div class="seg view-toggle" id="whichSeg" hidden>
+        <button data-v="before" aria-pressed="true">Original</button>
+        <button data-v="after" aria-pressed="false">Anonymized</button>
+      </div>
+      <input type="file" id="fileInput" accept=".nii,.gz,application/gzip" hidden>
+    </div>
+
+    <aside class="panel">
+      <div class="file" id="fileInfo">No scan loaded.</div>
+      <div class="field">
+        <span class="lbl">Method</span>
+        <div class="seg" id="modeSeg">
+          <button data-v="adaptive" aria-pressed="true">Adaptive</button>
+          <button data-v="blur" aria-pressed="false">Blur</button>
+          <button data-v="cut" aria-pressed="false">Cut</button>
+          <button data-v="block" aria-pressed="false">Block</button>
+        </div>
+        <p class="desc" id="modeDesc"></p>
+      </div>
+      <div class="field">
+        <span class="lbl">Region</span>
+        <div class="seg" id="regionSeg">
+          <button data-v="face" aria-pressed="true">Face</button>
+          <button data-v="face+ears" aria-pressed="false">Face + ears</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="lbl">Options</span>
+        <label class="opt"><input type="checkbox" id="levelFace"> Level face axis <span>also removes the lower lip and chin</span></label>
+        <label class="opt"><input type="checkbox" id="spareAir"> Spare air <span>leave the background around the head untouched</span></label>
+        <label class="opt"><input type="checkbox" id="partialFace"> Face cut by the scan <span>for scans that end at the nose: find and anonymize the upper face</span></label>
+      </div>
+      <button class="btn primary" id="runBtn" disabled>Anonymize</button>
+      <div class="msg" id="msg" hidden></div>
+      <dl class="stats" id="stats" hidden></dl>
+      <button class="btn" id="dlBtn" hidden>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>
+        <span>Download</span>
+      </button>
+    </aside>
+  </div>
+
+  <section class="pairs" id="pairs" hidden>
+    <h2>Detection views</h2>
+    <p>The angles the face was found from, with the detected landmarks, and the same angles after anonymization. Verification re-ran the detector on the right-hand images.</p>
+    <div class="pair-grid" id="pairGrid"></div>
+  </section>
+</main>
+
+<footer><div class="wrap">
+  RadVeil is open source (Apache-2.0). Face detection uses MediaPipe BlazeFace and Face Mesh (&copy; Google LLC, Apache-2.0), embedded in the demo: <a href="../LICENSE.txt">license</a>, <a href="../NOTICE.txt">notice</a>, <a href="../THIRD_PARTY_LICENSES.txt">third-party licenses</a>. This is a demo, not a substitute for checking anonymized data before you share it.
+</div></footer>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const MODE_DESC = {
+  adaptive: "Averages the face with a kernel that grows with each feature's strength (recommended). If the detector still finds a face, it gets stronger, and finally the region is filled.",
+  blur: "Smooths the face and keeps the head shape. If the detector still finds a face, the blur gets stronger, and finally the region is filled.",
+  cut: "Sets the face region to background, as most classic defacers do.",
+  block: "Fills the face region with an opaque block.",
+};
+
+// ---- worker RPC ----
+const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+let nextId = 0;
+const pending = new Map();
+worker.onmessage = ({ data }) => {
+  const p = pending.get(data.id);
+  pending.delete(data.id);
+  data.ok ? p.resolve(data.result) : p.reject(new Error(data.error));
+};
+worker.onerror = (e) => showMsg(`Could not start the WebAssembly engine: ${e.message || "unknown error"}`, true);
+function call(type, args = {}, transfer = []) {
+  return new Promise((resolve, reject) => {
+    const id = nextId++;
+    pending.set(id, { resolve, reject });
+    worker.postMessage({ id, type, ...args }, transfer);
+  });
+}
+
+// ---- state ----
+const state = { mode: "adaptive", region: "face", which: "before", yaw: 0, pitch: 0, loaded: false, done: false, busy: false, name: "", output: null };
+
+function segment(el, key, onChange) {
+  el.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b || b.disabled) return;
+    for (const x of el.querySelectorAll("button")) x.setAttribute("aria-pressed", String(x === b));
+    state[key] = b.dataset.v;
+    onChange?.();
+  });
+}
+segment($("modeSeg"), "mode", () => ($("modeDesc").textContent = MODE_DESC[state.mode]));
+segment($("regionSeg"), "region");
+segment($("whichSeg"), "which", () => { updateBadge(); draw(512); });
+$("modeDesc").textContent = MODE_DESC[state.mode];
+
+function busy(on, text = "Working…") {
+  state.busy = on;
+  $("busy").classList.toggle("on", on);
+  $("busyText").textContent = text;
+  $("runBtn").disabled = on || !state.loaded || state.done;
+}
+function showMsg(text, err = false) {
+  $("msg").hidden = !text;
+  $("msg").textContent = text || "";
+  $("msg").classList.toggle("err", err);
+}
+function updateBadge() {
+  const after = state.which === "after";
+  $("badge").textContent = after ? "Anonymized" : "Original";
+  $("badge").classList.toggle("after", after);
+}
+
+// ---- rendering ----
+// Renders frame the whole field of view, so the head can be small. Every
+// image is cropped to one square, fixed per scan (from the first frontal
+// render, with room for rotation) so views stay comparable. Fractions of
+// the image size, so it applies at any render size.
+let crop = { x: 0, y: 0, s: 1 };
+function fitCrop(img) {
+  const n = img.size, px = new Uint8Array(img.px);
+  // The top-left pixel is background.
+  const bg = px[0] + px[1] + px[2];
+  let x0 = n, y0 = n, x1 = -1, y1 = -1;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const i = 4 * (y * n + x);
+    if (Math.abs(px[i] + px[i + 1] + px[i + 2] - bg) > 30) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  }
+  if (x1 < 0) { crop = { x: 0, y: 0, s: 1 }; return; }
+  const s = Math.min(n, 1.45 * Math.max(x1 - x0, y1 - y0));
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const clamp = (v) => Math.max(0, Math.min(n - s, v));
+  crop = { x: clamp(cx - s / 2) / n, y: clamp(cy - s / 2) / n, s: s / n };
+}
+function paint(canvas, img, landmarks) {
+  const n = img.size, src = new OffscreenCanvas(n, n);
+  src.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(img.px), n, n), 0, 0);
+  const sx = crop.x * n, sy = crop.y * n, ss = crop.s * n;
+  const out = Math.round(Math.min(512, ss * 1.5));
+  canvas.width = canvas.height = out;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(src, sx, sy, ss, ss, 0, 0, out, out);
+  if (landmarks) {
+    const k = out / ss;
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--mark").trim() || "#4f8";
+    const r = Math.max(1.8, out / 200);
+    for (const [x, y] of landmarks) {
+      if (x < 0 || y < 0 || x > n || y > n) continue;
+      ctx.beginPath(); ctx.arc((x - sx) * k, (y - sy) * k, r, 0, 7); ctx.fill();
+    }
+  }
+}
+
+// Coalesce render requests: at most one in flight, the latest one wins.
+let inFlight = false, queued = null;
+function draw(size) {
+  if (!state.loaded) return;
+  queued = { which: state.which, yaw: state.yaw, pitch: state.pitch, size };
+  if (!inFlight) pump();
+}
+async function pump() {
+  inFlight = true;
+  while (queued) {
+    const req = queued; queued = null;
+    try {
+      const { image } = await call("render", req);
+      paint($("view"), image);
+    } catch (e) { showMsg(e.message, true); }
+  }
+  inFlight = false;
+}
+
+// Drag to rotate: low resolution while moving, full on release.
+const stage = $("stage");
+let drag = null;
+stage.addEventListener("pointerdown", (e) => {
+  if (!state.loaded || state.busy) return;
+  drag = { x: e.clientX, y: e.clientY, yaw: state.yaw, pitch: state.pitch };
+  stage.setPointerCapture(e.pointerId);
+  stage.classList.add("dragging");
+});
+stage.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  const k = 180 / stage.clientWidth;
+  state.yaw = drag.yaw - (e.clientX - drag.x) * k;
+  state.pitch = Math.max(-89, Math.min(89, drag.pitch + (e.clientY - drag.y) * k));
+  draw(256);
+});
+const endDrag = () => { if (!drag) return; drag = null; stage.classList.remove("dragging"); draw(512); };
+stage.addEventListener("pointerup", endDrag);
+stage.addEventListener("pointercancel", endDrag);
+stage.addEventListener("dblclick", () => { if (!state.loaded) return; state.yaw = 0; state.pitch = 0; draw(512); });
+
+// ---- loading ----
+const drop = $("drop");
+drop.addEventListener("click", () => $("fileInput").click());
+drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("fileInput").click(); } });
+$("fileInput").addEventListener("change", (e) => e.target.files[0] && load(e.target.files[0]));
+// The whole page accepts drops, so a near miss doesn't open the file in a tab.
+document.body.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+document.body.addEventListener("dragleave", (e) => { if (!e.relatedTarget) drop.classList.remove("over"); });
+document.body.addEventListener("drop", (e) => {
+  e.preventDefault(); drop.classList.remove("over");
+  const f = e.dataTransfer.files[0];
+  if (f) load(f);
+});
+
+function fmtBytes(n) { return n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.round(n / 1e3)} kB`; }
+
+async function load(file) {
+  if (state.busy) return;
+  if (!/\.nii(\.gz)?$/i.test(file.name)) { showMsg("Choose a .nii or .nii.gz file.", true); return; }
+  showMsg("");
+  resetResult();
+  stage.classList.add("has-scan");
+  busy(true, "Loading scan…");
+  try {
+    const { info } = await call("load", { bytes: await file.arrayBuffer() });
+    state.loaded = true; state.name = file.name; state.yaw = 0; state.pitch = 0; state.which = "before";
+    const [x, y, z] = info.shape, sp = info.spacing.map((s) => s.toFixed(2));
+    $("fileInfo").innerHTML = "";
+    const b = document.createElement("b"); b.textContent = file.name;
+    const other = document.createElement("a"); other.href = "#"; other.textContent = "Choose another file";
+    other.addEventListener("click", (e) => { e.preventDefault(); $("fileInput").value = ""; $("fileInput").click(); });
+    $("fileInfo").append(b, document.createElement("br"),
+      `${x}×${y}×${z} voxels · ${sp.join("×")} mm · ${info.orientation} · ${fmtBytes(file.size)}`,
+      document.createElement("br"), other);
+    $("badge").hidden = false; $("hint").hidden = false; updateBadge();
+    busy(true, "Rendering…");
+    const { image } = await call("render", { which: "before", yaw: 0, pitch: 0, size: 512 });
+    fitCrop(image);
+    paint($("view"), image);
+  } catch (e) {
+    state.loaded = false;
+    stage.classList.remove("has-scan");
+    $("fileInfo").textContent = "No scan loaded.";
+    showMsg(`Could not read this file: ${e.message}`, true);
+  } finally { busy(false); }
+}
+
+function resetResult() {
+  state.done = false; state.output = null;
+  $("stats").hidden = true; $("dlBtn").hidden = true; $("pairs").hidden = true; $("whichSeg").hidden = true;
+  $("pairGrid").innerHTML = "";
+  for (const b of document.querySelectorAll("#modeSeg button, #regionSeg button, .opt input")) b.disabled = false;
+  for (const b of $("whichSeg").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.v === "before"));
+}
+
+// ---- anonymize ----
+$("runBtn").addEventListener("click", async () => {
+  showMsg("");
+  busy(true, "Finding and anonymizing the face…");
+  try {
+    const { report, ms, pairs, file } = await call("anonymize", {
+      mode: state.mode, region: state.region,
+      spareAir: $("spareAir").checked, levelFace: $("levelFace").checked,
+      partialFace: $("partialFace").checked,
+    });
+    state.done = true;
+    state.output = new Blob([file], { type: "application/gzip" });
+    for (const b of document.querySelectorAll("#modeSeg button, #regionSeg button, .opt input")) b.disabled = true;
+    showStats(report, ms);
+    showPairs(pairs);
+    state.which = "after";
+    for (const b of $("whichSeg").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.v === "after"));
+    $("whichSeg").hidden = false; updateBadge();
+    $("dlBtn").hidden = false;
+    $("dlBtn").querySelector("span").textContent = `Download anonymized scan (${fmtBytes(state.output.size)})`;
+    $("dlBtn").title = outName();
+    draw(512);
+  } catch (e) {
+    showMsg(`No face could be confirmed in this scan, so nothing was changed. Details: ${e.message}`, true);
+  } finally { busy(false); }
+});
+
+function showStats(r, ms) {
+  const d = r.deface;
+  const rows = [
+    ["Face found in", `${r.views_detected} view${r.views_detected === 1 ? "" : "s"}`],
+    ["Eye distance", `${d.eye_dist_mm.toFixed(1)} mm`],
+    ["Voxels changed", `${(100 * d.voxels_changed / d.voxels_total).toFixed(1)} %`],
+    ["Orientation", r.orientation + (r.orientation_sweep ? " (swept)" : "")],
+    ["Verification", r.residual_detections == null ? "skipped" : r.residual_detections === 0 ? "no face found" : `${r.residual_detections} residual`],
+    ["Escalations", r.verify_rounds == null ? "–" : r.escalated_to_block ? `${r.verify_rounds}, filled` : String(r.verify_rounds)],
+    ["Time", `${(ms / 1000).toFixed(1)} s`],
+    ["Method", `${d.mode}${r.final_blur_sigma_mm ? `, σ ${r.final_blur_sigma_mm.toFixed(1)} mm` : ""}`],
+  ];
+  const dl = $("stats"); dl.innerHTML = "";
+  for (const [k, v] of rows) {
+    const div = document.createElement("div");
+    const dt = document.createElement("dt"); dt.textContent = k;
+    const dd = document.createElement("dd"); dd.textContent = v;
+    div.append(dt, dd); dl.append(div);
+  }
+  dl.hidden = false;
+}
+
+function showPairs(pairs) {
+  const grid = $("pairGrid");
+  for (const p of pairs) {
+    const card = document.createElement("div"); card.className = "pair";
+    const imgs = document.createElement("div"); imgs.className = "imgs";
+    const a = document.createElement("canvas"), b = document.createElement("canvas");
+    a.setAttribute("aria-label", "Original with detected landmarks");
+    b.setAttribute("aria-label", "Anonymized");
+    paint(a, p.before, p.landmarks); paint(b, p.after);
+    imgs.append(a, b);
+    const cap = document.createElement("div"); cap.className = "cap";
+    const yaw = Math.round(p.before.yaw), pitch = Math.round(p.before.pitch);
+    cap.innerHTML = `<span>Original</span><span class="mono">yaw ${yaw}° pitch ${pitch}°</span><span>Anonymized</span>`;
+    card.append(imgs, cap); grid.append(card);
+  }
+  $("pairs").hidden = pairs.length === 0;
+}
+
+function outName() { return state.name.replace(/\.nii(\.gz)?$/i, "") + "_defaced.nii.gz"; }
+$("dlBtn").addEventListener("click", () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(state.output);
+  a.download = outName();
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+</script>
+</body>
+</html>

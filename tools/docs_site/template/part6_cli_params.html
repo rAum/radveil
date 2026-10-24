@@ -1,0 +1,198 @@
+
+<!-- ============================================================ CLI -->
+<section class="part" id="ref-cli">
+<div class="eyebrow">Reference</div>
+<h2>Command line</h2>
+<p>One static binary, <code>radveil</code>. <code>radveil &lt;command&gt; --help</code> lists every option.</p>
+<div class="tablewrap"><table>
+<tr><th>Command</th><th>Purpose</th></tr>
+<tr><td><code>radveil auto IN OUT</code></td><td class="d">The full pipeline with the built-in detector. Options: <code>--mode</code>, <code>--region</code>, <code>--ear-mode</code>, <code>--mask-out</code>, <code>--report</code> (JSON, <code>-</code> = stdout), <code>--brain-guard</code>, <code>--brain-guard-mm</code>, <code>--brain-check</code>, <code>--no-verify</code>, <code>--skin-depth</code>, <code>--depth-behind</code>, <code>--blur-sigma</code>, <code>--no-eye-anchor</code>, <code>--yaw</code>, <code>--size</code>, <code>--threshold-frac</code>, <code>--threshold</code>, <code>--gzip-level</code>.</td></tr>
+<tr><td><code>radveil deface IN OUT</code></td><td class="d">Anonymize from given landmarks: <code>--landmarks3d</code> (<code>{"points": [[x, y, z] | null, …68]}</code>, RAS+ mm) or <code>--landmarks</code> (2D per view). Same <code>--mode</code>, <code>--region</code>, <code>--ear-mode</code> and geometry options; <code>--qa</code> writes renders.</td></tr>
+<tr><td><code>radveil deskull IN</code></td><td class="d">Brain extraction: <code>-o</code> stripped volume, <code>--mask-out</code>, <code>--method synthstrip|classical|rvbrain</code>, <code>--modality</code>, <code>--fill</code>, <code>--low-memory</code>, <code>--report</code>.</td></tr>
+<tr><td><code>radveil render IN</code></td><td class="d">PNG views plus per-view camera JSON: <code>-o</code>, <code>--yaw=-20,0,20</code> (use <code>=</code> for negative angles), <code>--pitch</code>, <code>--size</code>.</td></tr>
+<tr><td><code>radveil info IN</code></td><td class="d">Shape, spacing, orientation, datatype and affine.</td></tr>
+<tr><td><code>radveil conform IN</code></td><td class="d">The grid a brain-extraction network is fed (for debugging and training data).</td></tr>
+</table></div>
+<p>The mask-only escape hatch is deliberately not a CLI command: the CLI always anonymizes.</p>
+<h3 id="cli-exit">Exit status<a class="anchor" href="#cli-exit">#</a></h3>
+<div class="tablewrap"><table>
+<tr><th>Status</th><th>Meaning</th></tr>
+<tr><td><code>0</code></td><td class="d">Success.</td></tr>
+<tr><td><code>1</code></td><td class="d">Error or refusal (no plausible face); nothing was written.</td></tr>
+<tr><td><code>3</code></td><td class="d"><code>--brain-check</code> found modified brain voxels. The output is still written, so a batch can stop on it.</td></tr>
+</table></div>
+</section>
+
+<!-- ============================================================ PARAMS -->
+<section class="part" id="params">
+<div class="eyebrow">All languages</div>
+<h2>Parameter table</h2>
+<p>Geometry parameters, all optional. <em>d</em> is the measured inter-eye distance (~60–70 mm in adults). Python uses
+the name as a keyword argument, Rust as a <code>DefaceParams</code> field (<code>Option&lt;f64&gt;</code>), C as a
+struct field.</p>
+<div class="tablewrap"><table>
+<tr><th>Name</th><th>Auto</th><th>C field</th><th>CLI</th><th>Meaning</th></tr>
+<tr><td><code>mode</code></td><td><code>blur</code></td><td>argument</td><td><code>--mode</code></td><td class="d"><code>blur</code>, <code>adaptive</code>, <code>cut</code>, <code>block</code></td></tr>
+<tr><td><code>region</code></td><td><code>face</code></td><td>argument</td><td><code>--region</code></td><td class="d"><code>face</code>, <code>ears</code>, <code>face+ears</code></td></tr>
+<tr><td><code>ear_mode</code></td><td>= <code>mode</code></td><td>argument of <code>radveil_deface_regions</code></td><td><code>--ear-mode</code></td><td class="d">Separate mode for the ear regions in the same pass. <code>cut</code> or <code>block</code> is recommended for ears: blur leaves 10–16% of the pinna surface in place.</td></tr>
+<tr><td><code>skin_depth_mm</code></td><td>0.07·d</td><td><code>skin_depth_mm</code></td><td><code>--skin-depth</code></td><td class="d">How deep below the measured skin the face region reaches. Nose and lips are removed down to the surrounding face level.</td></tr>
+<tr><td><code>depth_behind_mm</code></td><td>0.21·d</td><td><code>depth_behind_mm</code></td><td><code>--depth-behind</code></td><td class="d">Hull floor behind the eye-skin plane; the skin wall is never deeper.</td></tr>
+<tr><td><code>depth_front_mm</code></td><td>1.55·d</td><td><code>depth_front_mm</code></td><td>—</td><td class="d">How far in front of the eyes the region reaches (past the nose tip).</td></tr>
+<tr><td><code>level_face</code></td><td>off</td><td><code>options |= RADVEIL_LEVEL_FACE</code></td><td><code>--level-face</code></td><td class="d">Measure the face skin along the level head axes instead of the downward-tilted face frame, so the lower lip and chin are removed too (skin removed at lower-lip landmarks 41% → 78%, chin 12% → 70%).</td></tr>
+<tr><td><code>spare_air</code></td><td>off</td><td><code>options |= RADVEIL_SPARE_AIR</code></td><td><code>--spare-air</code></td><td class="d">Leave background air untouched: write only tissue, the skin edge and a smooth shell around the head (about half the changed volume). If the bounded fill still leaves a face, verification fills the whole region as without it.</td></tr>
+<tr><td><code>width_factor</code></td><td>1.05</td><td><code>width_factor</code></td><td>—</td><td class="d">Half-width of the region, × d.</td></tr>
+<tr><td><code>above_eyes_mm</code></td><td>0.60·d</td><td><code>above_eyes_mm</code></td><td>—</td><td class="d">Margin above the eye line (brows, forehead edge).</td></tr>
+<tr><td><code>below_chin_mm</code></td><td>0.43·d</td><td><code>below_chin_mm</code></td><td>—</td><td class="d">Margin below the chin.</td></tr>
+<tr><td><code>blur_sigma_mm</code></td><td>0.17·d</td><td><code>blur_sigma_mm</code></td><td><code>--blur-sigma</code></td><td class="d">Gaussian σ for <code>blur</code> and <code>adaptive</code>; verification escalates it.</td></tr>
+<tr><td><code>adaptive_factor</code></td><td>2.5</td><td><code>adaptive_factor</code></td><td>—</td><td class="d"><code>adaptive</code>: heavy-kernel σ as a multiple of the blur σ.</td></tr>
+<tr><td><code>eye_surface_anchor</code></td><td>true</td><td>always on</td><td><code>--no-eye-anchor</code></td><td class="d">Anchor the hull to the measured eye-skin surface (corrects thick-slice landmark bias).</td></tr>
+<tr><td><code>eye_bias_mm</code></td><td>measured</td><td>—</td><td>—</td><td class="d">Explicit anchor offset, to pin the hull across calls.</td></tr>
+<tr><td><code>ear_inner_mm</code></td><td>0.75·d</td><td><code>inner_mm</code></td><td>—</td><td class="d">Ears: absolute medial floor; the cut never reaches medial of this.</td></tr>
+<tr><td><code>ear_outer_mm</code></td><td>2.20·d</td><td><code>outer_mm</code></td><td>—</td><td class="d">Ears: lateral bound (past any protruding pinna).</td></tr>
+<tr><td><code>ear_guard_mm</code></td><td>0.05·d</td><td><code>guard_mm</code></td><td>—</td><td class="d">Ears: cut depth below the scalp under the pinna (0.75× on flat scalp); never past the skull.</td></tr>
+<tr><td><code>ear_down_mm</code> · <code>ear_back_mm</code></td><td>0.35·d · 1.50·d</td><td><code>down_mm</code> · <code>back_mm</code></td><td>—</td><td class="d">Ears: centre of the fallback box (used when no pinna is detected) below the eye line / behind the eye plane, in the ear frame.</td></tr>
+<tr><td><code>ear_height_mm</code> · <code>ear_depth_mm</code></td><td>2.30·d · 1.60·d</td><td><code>height_mm</code> · <code>depth_mm</code></td><td>—</td><td class="d">Ears: fallback box extents along v / w.</td></tr>
+</table></div>
+<p>Pipeline options (<code>yaws</code>, <code>pitch</code>, <code>size</code>, <code>threshold_frac</code>,
+<code>threshold</code>, <code>verify</code>, <code>max_verify_rounds</code>, <code>verify_pitches</code>, <code>verify_effort</code> (CLI <code>--verify-effort</code>), <code>partial_face</code> (CLI <code>--partial-face</code>: faces cut by the field of view, such as a slab ending at the nose), <code>auto_threshold</code> (CLI <code>--auto-threshold</code>: noisy, dim scans such as infants),
+<code>escalate_to_block</code>, <code>brain_guard</code>, <code>brain_guard_mm</code>, <code>brain_check</code>; Python
+also <code>detector</code>, <code>fallback_detector</code>, <code>fallback_brain_guard</code>) are in <a href="#py-deface_volume"><code>deface_volume</code></a> and
+<a href="#rs-AutoParams"><code>AutoParams</code></a>.</p>
+</section>
+
+<!-- ============================================================ ERRORS -->
+<section class="part" id="errors">
+<div class="eyebrow">All languages</div>
+<h2>Errors &amp; refusals</h2>
+<p>Python raises <code>RuntimeError</code>, Rust returns <code>Err(String)</code>, C returns −1 with the text in
+<code>radveil_last_error()</code>, and the CLI exits with status 1. In every case nothing was modified.</p>
+<div class="tablewrap"><table>
+<tr><th>Message begins with</th><th>What it means</th></tr>
+<tr><td><code>no plausible face in any rendered view</code></td><td class="d">No detector hit in any view, including the orientation sweep: not a head, an already-defaced scan, or a threshold that misses the skin (check a render).</td></tr>
+<tr><td><code>face candidates did not survive validation</code></td><td class="d">Detections did not agree in 3D across views; typical for already-anonymized scans.</td></tr>
+<tr><td><code>the detected face is not seen through air</code></td><td class="d">The "face" lies on a field-of-view cut (for example the bottom slice of an axial slab), not on skin.</td></tr>
+<tr><td><code>brain_check and brain_guard need the `synthstrip` feature</code></td><td class="d">Rust only: enable the default <code>synthstrip</code> feature, or set <code>brain_guard: false</code>.</td></tr>
+</table></div>
+</section>
+
+<footer>
+<p>RadVeil 0.1.0 · © 2026 Piotr Gródek and the RadVeil contributors · <a href="https://github.com/rAum/radveil/blob/main/LICENSE">Apache-2.0</a> ·
+<a href="https://github.com/rAum/radveil/blob/main/THIRD_PARTY_LICENSES.txt">Third-party licenses</a> · <a href="fonts/README.md">Font licenses</a></p>
+<p>Includes the MediaPipe BlazeFace and Face Mesh models by Google (Apache-2.0) and the SynthStrip weights by Hoopes et al. (MIT).
+Third-party names identify components only and do not imply endorsement.
+Images: 3D Slicer&rsquo;s public &ldquo;MRHead&rdquo; sample, donated by the person pictured for use without restriction (<code>tools/make_site_images.py</code>).</p>
+<p>RadVeil is a free, open-source project developed in the author's spare time. It is not affiliated with, sponsored or endorsed by,
+and does not represent any current or former employer of the author. Provided "as is", without warranty; not a medical device.</p>
+<p>This site sets no cookies, runs no analytics and loads nothing from third parties.</p>
+</footer>
+
+</div>
+</main>
+</div>
+
+<script>
+(function () {
+  // Theme toggle, shared with the home page; remembered in this browser only.
+  var root = document.documentElement;
+  document.getElementById("theme").addEventListener("click", function () {
+    var dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("radveil-theme", root.dataset.theme); } catch (e) {}
+  });
+})();
+(function () {
+  var KEY = "radveil-docs-lang";
+  var store = { get: function () { try { return localStorage.getItem(KEY); } catch (e) { return null; } },
+                set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) {} } };
+
+  // Language tabs, synced across the page and remembered per visitor.
+  function setLang(lang, remember) {
+    document.querySelectorAll(".tabs").forEach(function (t) {
+      var avail = Array.prototype.map.call(t.querySelectorAll(".tablist button"), function (b) { return b.dataset.lang; });
+      var pick = avail.indexOf(lang) >= 0 ? lang : avail[0];
+      t.querySelectorAll(".tablist button").forEach(function (b) {
+        b.setAttribute("aria-selected", b.dataset.lang === pick ? "true" : "false");
+        b.tabIndex = b.dataset.lang === pick ? 0 : -1;
+      });
+      t.querySelectorAll(".pane").forEach(function (p) { p.classList.toggle("on", p.dataset.lang === pick); });
+    });
+    document.querySelectorAll(".langswitch button").forEach(function (b) {
+      b.setAttribute("aria-pressed", b.dataset.lang === lang ? "true" : "false");
+    });
+    if (remember) store.set(lang);
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".tablist button, .langswitch button");
+    if (!b) return;
+    var top = b.getBoundingClientRect().top;
+    setLang(b.dataset.lang, true);
+    window.scrollBy(0, b.getBoundingClientRect().top - top); // keep the clicked tab in place
+  });
+  document.addEventListener("keydown", function (e) {
+    var b = e.target.closest && e.target.closest(".tablist button");
+    if (!b || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
+    var list = Array.prototype.slice.call(b.parentNode.children);
+    var n = list[(list.indexOf(b) + (e.key === "ArrowRight" ? 1 : list.length - 1)) % list.length];
+    setLang(n.dataset.lang, true); n.focus(); e.preventDefault();
+  });
+  setLang(store.get() || "py", false);
+
+  // Copy buttons.
+  document.querySelectorAll(".code .copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var text = btn.parentNode.querySelector("pre").innerText;
+      var done = function () { btn.textContent = "Copied"; btn.classList.add("done");
+        setTimeout(function () { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1400); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {});
+    });
+  });
+
+  // Filter the contents; "/" focuses the box.
+  var q = document.getElementById("q"), toc = document.getElementById("toc");
+  var group = "";
+  Array.prototype.forEach.call(toc.children, function (el) {
+    if (el.tagName === "H4") group = el.textContent; else if (el.tagName === "A") el.dataset.g = group;
+  });
+  q.addEventListener("input", function () {
+    var term = q.value.trim().toLowerCase(), any = false;
+    toc.querySelectorAll("a").forEach(function (a) {
+      var hit = !term || a.textContent.toLowerCase().indexOf(term) >= 0;
+      a.style.display = hit ? "" : "none"; any = any || hit;
+    });
+    toc.querySelectorAll("h4").forEach(function (h) { h.style.display = term ? "none" : ""; });
+    toc.classList.toggle("filtering", !!term);
+    document.getElementById("none").style.display = any ? "none" : "block";
+  });
+  q.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { var a = Array.prototype.find.call(toc.querySelectorAll("a"), function (x) { return x.style.display !== "none"; });
+      if (a) { location.hash = a.getAttribute("href"); closeMenu(); } }
+    if (e.key === "Escape") { q.value = ""; q.dispatchEvent(new Event("input")); q.blur(); }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "/" && document.activeElement !== q && !/input|textarea/i.test(document.activeElement.tagName)) { e.preventDefault(); q.focus(); }
+  });
+
+  // Mobile contents drawer.
+  var side = document.getElementById("side"), menu = document.querySelector(".menu-btn");
+  function closeMenu() { side.classList.remove("open"); menu.setAttribute("aria-expanded", "false"); }
+  menu.addEventListener("click", function () { var o = side.classList.toggle("open"); menu.setAttribute("aria-expanded", o ? "true" : "false"); });
+  toc.addEventListener("click", function (e) { if (e.target.closest("a")) closeMenu(); });
+
+  // Highlight the section in view.
+  var links = {}; toc.querySelectorAll("a").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
+  var targets = Object.keys(links).map(function (id) { return document.getElementById(id); }).filter(Boolean);
+  if ("IntersectionObserver" in window) {
+    var current = null;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) current = en.target.id; });
+      if (current && links[current]) {
+        toc.querySelectorAll("a.active").forEach(function (a) { a.classList.remove("active"); });
+        links[current].classList.add("active");
+      }
+    }, { rootMargin: "-70px 0px -70% 0px" });
+    targets.forEach(function (t) { io.observe(t); });
+  }
+})();
+</script>
+</body>
+</html>

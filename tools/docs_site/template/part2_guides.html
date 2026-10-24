@@ -1,0 +1,66 @@
+
+<!-- ============================================================ GUIDES -->
+<section class="part" id="guides">
+<div class="eyebrow">Guides</div>
+<h2>Guides</h2>
+<p>Task-oriented recipes. Pick your language with the switch at the top; the choice is remembered on every example.</p>
+
+<h3 id="g-file">Anonymize a file<a class="anchor" href="#g-file">#</a></h3>
+<p>The file-to-file call takes every pipeline option. Here it also removes the ears (with their own mode,
+<code>ear_mode</code>), writes the mask of changed voxels, and saves before/after renders for review. The report is plain JSON-ready data.</p>
+[[tabs py="py/file.py" rs="note:The Rust pipeline is the same call as the <a href='#quickstart'>quick start</a>; set <code>DefaceParams { region: Region::FaceAndEars, ear_mode: Some(DefaceMode::Cut), .. }</code> and <code>AutoParams { return_mask: true, .. }</code>, then read <code>report.mask</code>. <code>AutoReport</code> implements <code>serde::Serialize</code>." c="note:Pass <code>&quot;face+ears&quot;</code> as <code>region</code> and a <code>uint8_t</code> buffer of nx·ny·nz bytes as <code>mask_out</code> to <a href='#c-deface_auto'><code>radveil_deface_auto</code></a> (one mode for all regions; a separate ear mode needs your landmarks and <a href='#c-deface'><code>radveil_deface_regions</code></a>)." sh="sh/file.sh"]]
+
+<h3 id="g-memory">Arrays &amp; DICOM<a class="anchor" href="#g-memory">#</a></h3>
+<p>Nothing requires a file. Build a volume from any float32 array and its voxel→RAS+ affine: a DICOM series read with
+pydicom or SimpleITK, an imaging application&rsquo;s volume, or raw data. The volume is modified in place. For uploads and object
+stores, <code>Volume.from_bytes(data)</code> parses <code>.nii</code>/<code>.nii.gz</code> content and
+<code>vol.to_bytes()</code> encodes the result, with no temporary file.</p>
+[[tabs py="py/memory.py" rs="note:<code>Volume::from_array(data: Array3&lt;f32&gt;, affine: Mat4)</code> (a row-major 4×4 <code>f64</code> array), then the same <code>deface_auto</code> call; the result is in <code>vol.data</code>." c="note:<code>radveil_volume_from_array(nx, ny, nz, data, affine)</code> copies your float buffer (C order) and a row-major 4×4 affine; read the result back from your own pipeline or save it with <code>radveil_volume_save</code>." sh="note:The CLI works on NIfTI files; convert DICOM first (for example with dcm2niix)."]]
+
+<h3 id="g-region">Region only: process it yourself<a class="anchor" href="#g-region">#</a></h3>
+<p>An API-only escape hatch. <code>anonymization_mask</code> runs detection, validation, the safety refusals and
+(optionally) the brain check, then returns the exact region <code>deface_auto</code> would rewrite. The volume is not
+touched. Escalations in <code>deface_auto</code> reuse the same region, so this is the final mask.</p>
+[[tabs py="py/region.py" rs="rs/src/bin/region.rs" c="c/region.cpp" sh="sh/region.sh"]]
+<div class="note warn"><b class="h">Nothing is verified in this mode</b>
+The mask says where RadVeil would anonymize, not that <em>your</em> processing of it hides the face. Check the result:
+render it and run <a href="#py-detect_landmarks"><code>detect_landmarks</code></a> on the views, or run
+<code>deface_auto</code> on your output and expect a refusal.</div>
+
+<h3 id="g-brain">Brain check &amp; brain extraction<a class="anchor" href="#g-brain">#</a></h3>
+<p>Two opt-in safety options, sharing one brain extraction from the <em>input</em> (SynthStrip, pure Rust, ~3 s):
+<code>brain_guard</code> never modifies the brain or anything within 3 mm of it, and <code>brain_check</code> reports
+how many brain voxels were modified and how close the change came. Brain extraction is also available on its own.</p>
+[[tabs py="py/brain.py" rs="rs/src/bin/brain.rs" c="note:Pass <code>RADVEIL_BRAIN_GUARD | RADVEIL_BRAIN_CHECK</code> as <code>brain</code> to <a href='#c-deface_auto'><code>radveil_deface_auto</code></a> (see the <a href='#quickstart'>quick start</a>) and read <code>report.brain_voxels_modified</code>; extract the brain with <a href='#c-deskull'><code>radveil_deskull</code></a>." sh="sh/brain.sh"]]
+
+<h3 id="g-detector">Your own face detector<a class="anchor" href="#g-detector">#</a></h3>
+<p>The built-in detector (MediaPipe BlazeFace + Face Mesh, embedded) needs no setup. To use another model, give the
+pipeline 68 landmarks in the standard 68-point (iBUG) order on each rendered view; validation and verification still run. In C, hosts
+supply 68 world-space points directly.</p>
+[[tabs py="py/detector.py" rs="rs/src/bin/detector.rs" c="c/landmarks.c" sh="note:Pass 68 world-space points as JSON: <code>radveil deface in.nii.gz out.nii.gz --landmarks3d points.json</code> (see <a href='#g-steps'>step by step</a>)."]]
+<p>Whatever detector found the face, verification also attacks the output with the built-in one. In Python,
+<code>detector="dlib"</code> selects the optional dlib detector (<code>pip install "radveil[dlib]"</code> and
+<a href="#py-fetch_predictor"><code>fetch_predictor()</code></a>): dlib's CC0 5-point model by default, eyes and
+nose base measured, mouth inferred, jaw unused. <code>fallback_detector="dlib"</code> instead keeps the built-in
+detector and processes only the scans it rejects, with the brain guard on (<code>fallback_brain_guard=True</code>);
+the report's <code>fallback_used</code> says which ran. dlib's research-only 68-point models are used only when
+passed as <code>predictor_path</code>, with a license warning.</p>
+
+<h3 id="g-batch">Cohorts<a class="anchor" href="#g-batch">#</a></h3>
+<p><code>deface_batch</code> runs <code>workers</code> volumes at a time (default min(cpu_count, 32, n)) on threads in
+one process: the Rust core releases the GIL, so threads scale like processes and share one copy of the detector
+models. <code>executor="processes"</code> isolates each volume in a spawned worker instead (then call it under
+<code>if __name__ == "__main__":</code>). Refused or failed inputs are reported, not raised.</p>
+[[tabs py="py/batch.py" rs="note:Call <code>deface_auto</code> per file from your own thread pool; each thread needs its own <code>MediaPipeDetector</code>." c="note:Call <code>radveil_deface_auto</code> per volume; errors are thread-local (<code>radveil_last_error</code>)." sh="sh/batch.sh"]]
+
+<h3 id="g-refusal">Handling refusals<a class="anchor" href="#g-refusal">#</a></h3>
+<p>A refusal means RadVeil found no face it trusts and changed nothing. Treat it as an item for human review, never
+as processed. Anonymizing an already-anonymized scan is the classic case:</p>
+[[tabs py="py/refusal.py" rs="rs/src/bin/detector.rs" c="c/quickstart.c" sh="sh/refusal.sh"]]
+<p>The messages are listed under <a href="#errors">errors &amp; refusals</a>.</p>
+
+<h3 id="g-steps">Step by step<a class="anchor" href="#g-steps">#</a></h3>
+<p>Every stage is exposed: render views with a position map, detect 2D landmarks, lift them to 3D, anonymize. This
+path skips shape-consensus validation and verification, so prefer <code>deface_volume</code> unless you need the parts.</p>
+[[tabs py="py/steps.py" rs="note:<code>render_view</code> → your detector → <code>RenderView::world_at</code> → <code>face_frame_from_landmarks</code> → <code>deface</code>; see the <a href='#rs-render'>Rust reference</a>." c="c/landmarks.c" sh="sh/steps.sh"]]
+</section>
