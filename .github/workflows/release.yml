@@ -1,0 +1,296 @@
+# Release: push a tag `vX.Y.Z` (after bumping versions, see RELEASING.md).
+#
+#   check ──┬─ wheels (5 platforms) + sdist ── test-wheels ──┬─ pypi ────┬─ github-release
+#           ├─ native (CLI + C library, 5 targets) ──────────┴─ crates ──┤
+#           └─ sbom (CycloneDX: wheel, CLI, C library) ──────────────────┘
+#
+# Nothing is published unless every build and test passed. Run it by hand
+# (Actions → Release → Run workflow) to build and test everything without
+# publishing.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: tag
+        name: Release tag (the pushed tag, or v<Cargo.toml version> on a manual run)
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then tag="$GITHUB_REF_NAME"; else
+            tag="v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Versions agree with the tag; changelog has a section for it
+        run: python3 tools/release_check.py "${{ steps.tag.outputs.tag }}" --notes release-notes.md
+      - name: Third-party license notices are complete and allowed
+        run: python3 tools/third_party_licenses.py --check
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-notes
+          path: release-notes.md
+
+  wheels:
+    needs: check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64, manylinux: auto, name: linux-x86_64 }
+          - { os: ubuntu-latest, target: aarch64, manylinux: auto, name: linux-aarch64 }
+          - { os: macos-15-intel, target: x86_64, name: macos-x86_64 }
+          - { os: macos-latest, target: aarch64, name: macos-aarch64 }
+          - { os: windows-latest, target: x64, name: windows-x86_64 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8 # v1
+        with:
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --locked --out dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wheels-${{ matrix.name }}
+          path: dist
+
+  sdist:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: PyO3/maturin-action@423a6347767a8b16e65c2a7a7042e4a921528da8 # v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wheels-sdist
+          path: dist
+
+  test-wheels:
+    # Install the built artifacts (not the source tree) and run the Python
+    # tests: oldest and newest supported Python, every OS; plus a wheel
+    # built from the sdist, which catches files missing from it.
+    needs: [wheels, sdist]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest]
+        python: ["3.9", "3.13"]
+        include:
+          - { os: ubuntu-latest, python: "3.12", from-sdist: true }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        if: matrix.from-sdist
+      - name: Install from the sdist (builds the Rust extension)
+        if: matrix.from-sdist
+        shell: bash
+        run: pip install dist/*.tar.gz
+      - name: Install the platform wheel
+        if: ${{ !matrix.from-sdist }}
+        run: pip install --only-binary radveil --no-index --find-links dist radveil
+      - name: Test (dlib not installed; the built-in detector must suffice)
+        shell: bash
+        run: |
+          pip install numpy nibabel pytest
+          if python -c "import dlib" 2>/dev/null; then echo "dlib must not be installed"; exit 1; fi
+          # run from outside the checkout so the installed package is tested
+          cd "$RUNNER_TEMP" && python -m pytest "$GITHUB_WORKSPACE/tests" -q
+
+  native:
+    # radveil CLI + libradveil (C ABI, usable from C and C++) per target.
+    needs: check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu }
+          - { os: macos-15-intel, target: x86_64-apple-darwin }
+          - { os: macos-latest, target: aarch64-apple-darwin }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc }
+    env:
+      NAME: radveil-${{ needs.check.outputs.tag }}-${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build CLI and C library
+        # Two invocations: bin `radveil` and lib `radveil` would otherwise
+        # collide on radveil.pdb on Windows.
+        shell: bash
+        run: |
+          cargo build --release --locked --target ${{ matrix.target }} -p radveil-cli
+          cargo build --release --locked --target ${{ matrix.target }} -p radveil-capi
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="target/${{ matrix.target }}/release"
+          mkdir -p "$NAME"/{bin,lib,include,examples}
+          cp LICENSE NOTICE THIRD_PARTY_LICENSES.txt README.md "$NAME"/
+          cp crates/radveil-capi/include/radveil.h "$NAME"/include/
+          cp crates/radveil-capi/examples-c/smoke.c "$NAME"/examples/
+          cat > "$NAME"/LINKING.txt <<'EOF'
+          RadVeil C library (C ABI; usable from C and C++)
+
+          Header:  include/radveil.h
+          Linux:   cc app.c -Iinclude -Llib -lradveil -lm -Wl,-rpath,'$ORIGIN/../lib'
+                   (or link lib/libradveil.a statically)
+          macOS:   cc app.c -Iinclude -Llib -lradveil -Wl,-rpath,@executable_path/../lib
+                   (the dylib's install name is @rpath/libradveil.dylib)
+          Windows: link lib/radveil.dll.lib and ship bin/radveil.dll next to the
+                   executable, or link lib/radveil.lib statically.
+          examples/smoke.c is a complete example. The bin/radveil CLI needs no
+          library. Licenses: LICENSE, NOTICE, THIRD_PARTY_LICENSES.txt.
+          EOF
+          case "${{ runner.os }}" in
+            Windows)
+              cp "$out"/radveil.exe "$NAME"/bin/
+              cp "$out"/radveil.dll "$NAME"/bin/
+              cp "$out"/radveil.dll.lib "$out"/radveil.lib "$NAME"/lib/
+              7z a -tzip "$NAME.zip" "$NAME" > /dev/null ;;
+            macOS)
+              cp "$out"/radveil "$NAME"/bin/
+              cp "$out"/libradveil.dylib "$out"/libradveil.a "$NAME"/lib/
+              tar czf "$NAME.tar.gz" "$NAME" ;;
+            *)
+              cp "$out"/radveil "$NAME"/bin/
+              cp "$out"/libradveil.so "$out"/libradveil.a "$NAME"/lib/
+              tar czf "$NAME.tar.gz" "$NAME" ;;
+          esac
+      - name: Smoke test the packaged CLI and C library
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$NAME"/bin/radveil --version
+          if [ "${{ runner.os }}" != Windows ]; then
+            cc -O2 -I "$NAME"/include "$NAME"/examples/smoke.c -L "$NAME"/lib -lradveil -lm -o smoke
+            LD_LIBRARY_PATH="$NAME"/lib DYLD_LIBRARY_PATH="$NAME"/lib ./smoke
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-${{ matrix.target }}
+          path: ${{ env.NAME }}.*
+
+  sbom:
+    # CycloneDX SBOMs for the wheel, CLI and C library (default features,
+    # all platforms), attached to the GitHub release.
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install "cyclonedx-python-lib[json-validation]"
+      - run: python tools/sbom.py --validate
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom
+          path: sbom/*.cdx.json
+
+  pypi:
+    if: github.event_name == 'push'
+    needs: [test-wheels, native]
+    runs-on: ubuntu-latest
+    # PyPI trusted publishing: no token is stored anywhere (RELEASING.md).
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: dist
+          skip-existing: true
+
+  crates:
+    if: github.event_name == 'push'
+    needs: [test-wheels, native]
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      # crates.io trusted publishing; the very first release of a crate needs
+      # the CARGO_REGISTRY_TOKEN secret instead (RELEASING.md).
+      - id: auth
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1
+        continue-on-error: true
+      - name: Publish radveil-core, then radveil-cli (skips versions already on crates.io)
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token || secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          for crate in radveil-core radveil-cli; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -A "radveil-release (github.com/${GITHUB_REPOSITORY})" \
+              "https://crates.io/api/v1/crates/$crate/$version")
+            if [ "$code" = 200 ]; then echo "$crate $version already published"; continue; fi
+            cargo publish --locked -p "$crate"
+          done
+
+  github-release:
+    if: github.event_name == 'push'
+    needs: [check, sbom, pypi, crates]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        working-directory: dist
+        run: |
+          mv release-notes.md ../
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          flags=()
+          case "$TAG" in *-*) flags+=(--prerelease) ;; esac
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "RadVeil ${TAG#v}" --notes-file release-notes.md "${flags[@]}"
