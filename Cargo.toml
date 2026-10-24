@@ -1,0 +1,29 @@
+[workspace]
+members = ["crates/radveil-core", "crates/radveil-cli", "crates/radveil-py", "crates/radveil-capi", "crates/radveil-wasm"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+# 1.98 bundles the LLVM objcopy fix for macOS strip (rust-lang/rust#157750):
+# older rustc misaligns __LINKEDIT and dyld on macOS 27 refuses the binary.
+rust-version = "1.98"
+authors = ["Piotr Gródek"]
+repository = "https://github.com/rAum/radveil"
+
+[workspace.dependencies]
+radveil-core = { version = "0.1.0", path = "crates/radveil-core" }
+nifti = { version = "0.18", features = ["ndarray_volumes"] }
+ndarray = { version = "0.17", features = ["rayon"] }
+rayon = "1.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "2"
+png = "0.17"
+clap = { version = "4", features = ["derive", "env"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
