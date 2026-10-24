@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RadVeil — face &amp; ear anonymization for MRI and CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="RadVeil is an open-source CPU-only defacer for NIfTI head MRI and CT. It removes the face and the ears, verifies the result against the same face detector an attacker would use, and leaves every other voxel bit-exact.">
+<meta property="og:title" content="RadVeil — face &amp; ear anonymization for MRI and CT">
+<meta property="og:description" content="Open-source defacing that verifies its own output: renders the volume, attacks it with a face detector, and accepts only when detection fails. Face and ear regions; every voxel outside the mask bit-exact.">
+<meta property="og:type" content="website">
+<meta name="author" content="Piotr Gródek">
+<meta name="citation_title" content="RadVeil: CPU-only face and ear anonymization for volumetric head imaging">
+<meta name="citation_author" content="Gródek, Piotr">
+<meta name="citation_public_url" content="https://github.com/rAum/radveil">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b7a6f'/%3E%3Cpath d='M9 22V10h7.5a4 4 0 0 1 0 8H9m7-0 6 4' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+/* Self-hosted web fonts (SIL OFL 1.1) -- licenses and sources in fonts/README.md.
+   Nothing on this site is loaded from a third party: no font service, no analytics, no cookies. */
+@font-face{font-family:Archivo; font-style:normal; font-display:swap; font-weight:100 900; font-stretch:62% 125%;
+  src:url(fonts/archivo-latin-wdth-normal.woff2) format("woff2-variations"), url(fonts/archivo-latin-wdth-normal.woff2) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Source Serif 4"; font-style:normal; font-display:swap; font-weight:200 900;
+  src:url(fonts/SourceSerif4Variable-Roman.ttf.woff2) format("woff2-variations"), url(fonts/SourceSerif4Variable-Roman.ttf.woff2) format("woff2")}
+@font-face{font-family:"Source Serif 4"; font-style:italic; font-display:swap; font-weight:200 900;
+  src:url(fonts/SourceSerif4Variable-Italic.ttf.woff2) format("woff2-variations"), url(fonts/SourceSerif4Variable-Italic.ttf.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-display:swap; font-weight:400; src:url(fonts/IBMPlexMono-Regular.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-display:swap; font-weight:500; src:url(fonts/IBMPlexMono-Medium.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-display:swap; font-weight:600; src:url(fonts/IBMPlexMono-SemiBold.woff2) format("woff2")}
+</style>
+<style>
+/* Teal is the brand; amber is the anonymization mask, the colour baked into the figures. */
+:root{
+  --ground:#f5f4ef; --surface:#fffefb; --surface2:#ecebe4; --line:#dcdad1; --line-strong:#c9c6bb;
+  --ink:#15191d; --muted:#545c66; --faint:#868d96;
+  --accent:#0b7a6f; --accent-ink:#ffffff; --accent-wash:rgba(11,122,111,.08);
+  --mask:#c98a1c; --brain:#3b82f6;
+  --code-bg:#12171c; --code-ink:#dbe3ea; --code-line:#232c35;
+  --shadow:0 1px 2px rgba(20,25,30,.05), 0 12px 32px rgba(20,25,30,.07);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0c0f12; --surface:#13181d; --surface2:#1a2027; --line:#242d36; --line-strong:#33404b;
+    --ink:#e9eef2; --muted:#9aa6b2; --faint:#66727e;
+    --accent:#4fd1bd; --accent-ink:#06201c; --accent-wash:rgba(79,209,189,.09);
+    --mask:#e3aa4b; --brain:#60a5fa;
+    --code-bg:#0e1317; --code-line:#1f2830;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0c0f12; --surface:#13181d; --surface2:#1a2027; --line:#242d36; --line-strong:#33404b;
+  --ink:#e9eef2; --muted:#9aa6b2; --faint:#66727e;
+  --accent:#4fd1bd; --accent-ink:#06201c; --accent-wash:rgba(79,209,189,.09);
+  --mask:#e3aa4b; --brain:#60a5fa;
+  --code-bg:#0e1317; --code-line:#1f2830;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box; margin:0}
+html{scroll-behavior:smooth; scroll-padding-top:72px}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto} *{transition:none !important}}
+body{background:var(--ground); color:var(--ink); font-family:"Source Serif 4",Georgia,serif; font-size:17px; line-height:1.65;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline; text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:4px}
+img{max-width:100%}
+.wrap{max-width:1120px; margin:0 auto; padding:0 24px}
+h1,h2,h3,.ui{font-family:Archivo,system-ui,sans-serif; text-wrap:balance; line-height:1.12}
+code,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+:not(pre) > code{font-size:.84em; background:var(--surface2); border:1px solid var(--line); border-radius:4px; padding:.04em .34em}
+.eyebrow{font-family:Archivo,sans-serif; font-stretch:118%; font-weight:650; font-size:.72rem; letter-spacing:.17em; text-transform:uppercase; color:var(--accent)}
+
+/* ---- header ---- */
+header.top{position:sticky; top:0; z-index:30; background:color-mix(in srgb,var(--ground) 86%,transparent);
+  backdrop-filter:saturate(1.4) blur(12px); -webkit-backdrop-filter:saturate(1.4) blur(12px); border-bottom:1px solid var(--line)}
+.bar{display:flex; align-items:center; gap:28px; height:62px}
+.brand{display:inline-flex; align-items:center; gap:10px; font-family:Archivo,sans-serif; font-stretch:120%; font-weight:800; font-size:1.1rem; letter-spacing:.01em; color:var(--ink)}
+.brand:hover{text-decoration:none}
+.brand svg{flex:none}
+.bar nav{display:flex; gap:22px; font-family:Archivo,sans-serif; font-size:.88rem}
+.bar nav a{color:var(--muted)} .bar nav a:hover{color:var(--ink); text-decoration:none}
+.bar .right{margin-left:auto; display:flex; align-items:center; gap:10px}
+.iconbtn{display:inline-flex; align-items:center; justify-content:center; gap:8px; height:36px; min-width:36px; padding:0 10px; border-radius:8px;
+  border:1px solid var(--line); background:var(--surface); color:var(--ink); font:600 .84rem Archivo,sans-serif; cursor:pointer}
+.iconbtn:hover{border-color:var(--line-strong); text-decoration:none}
+.iconbtn .sun{display:none}
+:root[data-theme="dark"] .iconbtn .sun{display:block} :root[data-theme="dark"] .iconbtn .moon{display:none}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .iconbtn .sun{display:block} :root:not([data-theme="light"]) .iconbtn .moon{display:none}}
+
+/* ---- buttons ---- */
+.btn{display:inline-flex; align-items:center; gap:8px; height:44px; padding:0 18px; border-radius:10px; font:650 .93rem Archivo,sans-serif;
+  border:1px solid var(--line-strong); color:var(--ink); background:var(--surface)}
+.btn:hover{text-decoration:none; border-color:var(--ink)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+
+/* ---- hero ---- */
+.hero{display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,1fr); gap:64px; align-items:center; padding-top:80px; padding-bottom:72px}
+.hero h1{font-size:clamp(2.4rem,5.4vw,4rem); font-weight:800; font-stretch:104%; letter-spacing:-.015em; margin:16px 0 20px; line-height:1.02}
+.hero h1 em{font-style:normal; color:var(--accent)}
+.lede{font-size:1.12rem; color:var(--muted); max-width:31em}
+.ctas{display:flex; flex-wrap:wrap; gap:12px; margin-top:30px}
+.status{display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin-top:22px; font:500 .84rem Archivo,sans-serif; color:var(--muted)}
+.pill{display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:99px; border:1px solid var(--line); background:var(--surface); font:600 .74rem Archivo,sans-serif; letter-spacing:.04em; color:var(--muted)}
+.pill i{width:7px; height:7px; border-radius:50%; background:var(--mask)}
+.metanote{margin-top:12px; max-width:34em; padding:9px 12px; border:1px solid var(--line); border-left:3px solid var(--mask); border-radius:8px;
+  background:color-mix(in srgb,var(--mask) 7%,var(--surface)); font:400 .84rem/1.5 Archivo,sans-serif; color:var(--muted)}
+.metanote b{color:var(--ink)}
+
+/* install box */
+.install{margin-top:30px; max-width:470px; border:1px solid var(--code-line); border-radius:12px; background:var(--code-bg); overflow:hidden; box-shadow:var(--shadow)}
+.install .tl{display:flex; gap:2px; padding:6px 6px 0; border-bottom:1px solid var(--code-line)}
+.install .tl button{background:none; border:0; border-bottom:2px solid transparent; color:#8592a0; font:600 .78rem Archivo,sans-serif; padding:6px 11px 8px; cursor:pointer; margin-bottom:-1px}
+.install .tl button[aria-selected="true"]{color:#fff; border-bottom-color:var(--accent)}
+.install .cmd{display:flex; align-items:center; gap:12px; padding:14px 16px; color:var(--code-ink); font-size:.92rem}
+.install .cmd .p{color:#6b7885; user-select:none}
+.install .cmd code{flex:1; white-space:nowrap; overflow-x:auto; background:none; border:0; padding:0; font-size:inherit}
+.copy{background:#1b232b; color:#b9c4ce; border:1px solid #2c3742; border-radius:6px; font:600 .72rem Archivo,sans-serif; padding:4px 10px; cursor:pointer}
+.copy:hover{color:#fff}
+.copy.done{color:#8fe0c9}
+
+/* before/after viewer */
+.viewer{position:relative; background:#000; border-radius:16px; padding:14px; box-shadow:var(--shadow); border:1px solid #1c232a}
+.vhead,.vfoot{display:flex; justify-content:space-between; gap:12px; font:500 .64rem/1.5 "IBM Plex Mono",monospace; letter-spacing:.06em; color:#8fe0c9; text-transform:uppercase; white-space:pre}
+.vhead{margin:2px 4px 12px} .vfoot{margin:12px 4px 2px}
+.vhead .r,.vfoot .r{text-align:right}
+.vfoot b{color:#e3aa4b; font-weight:500}
+.compare{position:relative; aspect-ratio:364/404; border-radius:8px; overflow:hidden; background:#000; user-select:none; touch-action:pan-y; cursor:ew-resize}
+.compare img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; pointer-events:none}
+.compare .after{clip-path:inset(0 0 0 var(--pos,50%))}
+.compare .handle{position:absolute; top:0; bottom:0; left:var(--pos,50%); width:2px; margin-left:-1px; background:#fff; pointer-events:none; box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.compare .handle::after{content:""; position:absolute; top:50%; left:50%; width:38px; height:38px; transform:translate(-50%,-50%); border-radius:50%;
+  background:#000 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 7-5 5 5 5M15 7l5 5-5 5'/%3E%3C/svg%3E") center/20px no-repeat; border:2px solid #fff}
+.compare .tag{position:absolute; top:10px; font:600 .66rem "IBM Plex Mono",monospace; letter-spacing:.1em; text-transform:uppercase; padding:3px 8px; border-radius:4px; pointer-events:none}
+.compare .tag.l{left:10px; background:rgba(0,0,0,.65); color:#fff}
+.compare .tag.r{right:10px; background:#e3aa4b; color:#1a1408}
+.compare input{position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:ew-resize; margin:0}
+.compare:has(input:focus-visible){outline:2px solid var(--accent); outline-offset:3px}
+
+/* ---- fact strip ---- */
+.strip{border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--surface)}
+.strip ul{list-style:none; padding-top:0; padding-bottom:0; display:grid; grid-template-columns:repeat(3,1fr)}
+.strip li{padding:20px 22px; border-left:1px solid var(--line); font:500 .9rem/1.45 Archivo,sans-serif; color:var(--muted)}
+.strip li:first-child{border-left:0; padding-left:0}
+.strip b{display:block; color:var(--ink); font-weight:700; font-size:.98rem; margin-bottom:2px}
+
+/* ---- sections ---- */
+section{padding:96px 0 0}
+.head{max-width:44em}
+section h2{font-size:clamp(1.75rem,3.2vw,2.35rem); font-weight:780; letter-spacing:-.01em; margin:12px 0 14px}
+.sub{color:var(--muted); max-width:44em}
+.sub + .sub{margin-top:10px}
+
+/* pipeline */
+.pipe{list-style:none; padding:0; display:grid; grid-template-columns:repeat(5,1fr); gap:0; margin-top:44px; counter-reset:s; position:relative}
+.pipe li{position:relative; padding:26px 22px 0 0}
+.pipe li::before{counter-increment:s; content:"0" counter(s); display:flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:50%;
+  background:var(--surface); border:1px solid var(--line-strong); font:600 .78rem "IBM Plex Mono",monospace; color:var(--accent); position:relative; z-index:1}
+.pipe li::after{content:""; position:absolute; top:46px; left:40px; right:0; height:1px; background:var(--line-strong)}
+.pipe li:last-child::after{display:none}
+.pipe li:last-child::before{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.pipe h3{font-size:1.04rem; font-weight:720; margin:16px 0 6px}
+.pipe p{font:400 .88rem/1.5 Archivo,sans-serif; color:var(--muted)}
+
+/* numbers */
+.figures{display:grid; grid-template-columns:repeat(5,1fr); gap:1px; margin-top:44px; background:var(--line); border:1px solid var(--line); border-radius:14px; overflow:hidden}
+.fig{background:var(--surface); padding:22px 20px 20px}
+.fig .v{font-family:"IBM Plex Mono",monospace; font-size:1.6rem; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-.02em; white-space:nowrap}
+.fig .l{font:400 .82rem/1.45 Archivo,sans-serif; color:var(--muted); margin-top:8px}
+.fig code{font-size:.92em}
+.method{margin-top:18px; font:400 .86rem/1.55 Archivo,sans-serif; color:var(--faint); max-width:62em}
+
+/* modes explorer */
+.explorer{display:grid; grid-template-columns:260px minmax(0,1fr); gap:28px; margin-top:44px; align-items:start}
+.modelist{display:flex; flex-direction:column; gap:8px}
+.modelist button{text-align:left; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; cursor:pointer; color:var(--ink); font:inherit}
+.modelist button:hover{border-color:var(--line-strong)}
+.modelist button[aria-selected="true"]{border-color:var(--accent); background:var(--accent-wash); box-shadow:inset 3px 0 0 var(--accent)}
+.modelist b{display:flex; align-items:center; gap:8px; font:600 .9rem "IBM Plex Mono",monospace}
+.modelist b small{font:700 .62rem Archivo,sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); border:1px solid currentColor; border-radius:99px; padding:0 7px}
+.modelist span{display:block; font:400 .84rem/1.45 Archivo,sans-serif; color:var(--muted); margin-top:4px}
+.stage{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,.65fr); gap:12px; align-items:start}
+.stage figure{margin:0; background:#000; border-radius:12px; overflow:hidden; border:1px solid var(--line)}
+.stage img{display:block; width:100%; aspect-ratio:364/404; object-fit:contain; background:#000}
+.stage figure.sl img{aspect-ratio:256/438}
+.stage figcaption{padding:9px 12px; font:500 .76rem "IBM Plex Mono",monospace; color:var(--muted); background:var(--surface); border-top:1px solid var(--line)}
+.stagenote{margin-top:14px; font:400 .84rem/1.5 Archivo,sans-serif; color:var(--faint)}
+
+/* split feature */
+.split{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:56px; align-items:center; margin-top:44px}
+.pair{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+.pair figure,.solo figure{margin:0; background:#000; border-radius:12px; overflow:hidden; border:1px solid var(--line)}
+.pair img,.solo img{display:block; width:100%}
+.pair figcaption,.solo figcaption{padding:9px 12px; font:500 .76rem "IBM Plex Mono",monospace; color:var(--muted); background:var(--surface); border-top:1px solid var(--line)}
+.legend{display:inline-block; width:12px; height:3px; border-radius:2px; vertical-align:middle; margin:0 5px 0 0}
+.points{list-style:none; padding:0; display:grid; gap:18px}
+.points li{display:grid; grid-template-columns:28px 1fr; gap:12px}
+.points li::before{content:""; width:28px; height:28px; border-radius:8px; background:var(--accent-wash) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230b7a6f' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 12 4 4 8-8'/%3E%3C/svg%3E") center/16px no-repeat; border:1px solid var(--line)}
+.points h3{font-size:1rem; font-weight:700; margin:3px 0 4px}
+.points p{font:400 .9rem/1.55 Archivo,sans-serif; color:var(--muted)}
+
+/* features */
+.feat{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:44px}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:20px 20px 18px}
+.card h3{font-size:1rem; font-weight:720; margin-bottom:6px}
+.card p{font:400 .87rem/1.55 Archivo,sans-serif; color:var(--muted)}
+.card code{font-size:.8em}
+
+/* code */
+.codecard{margin-top:36px; border:1px solid var(--code-line); border-radius:14px; background:var(--code-bg); overflow:hidden; box-shadow:var(--shadow)}
+.codecard .tl{display:flex; align-items:center; gap:2px; padding:6px 8px 0; border-bottom:1px solid var(--code-line)}
+.codecard .tl button{background:none; border:0; border-bottom:2px solid transparent; color:#8592a0; font:600 .8rem Archivo,sans-serif; padding:7px 12px 9px; cursor:pointer; margin-bottom:-1px}
+.codecard .tl button[aria-selected="true"]{color:#fff; border-bottom-color:var(--accent)}
+.codecard .tl .copy{margin-left:auto; margin-bottom:4px}
+.codecard pre{padding:20px 22px; overflow-x:auto; font-size:.86rem; line-height:1.65; color:var(--code-ink)}
+.codecard pre[hidden]{display:none}
+pre .c{color:#6f7d8b; font-style:italic} pre .k{color:#8fe0c9} pre .s{color:#f0c27a} pre .f{color:#9cc7f2}
+
+.refusal{display:grid; grid-template-columns:auto 1fr; gap:16px; margin-top:20px; border:1px solid var(--line); border-left:3px solid var(--mask);
+  background:color-mix(in srgb,var(--mask) 7%,var(--surface)); border-radius:12px; padding:18px 22px; align-items:start}
+.refusal .mark{font:700 1rem "IBM Plex Mono",monospace; color:var(--mask)}
+.refusal p{font:400 .93rem/1.55 Archivo,sans-serif; color:var(--muted)}
+.refusal b{color:var(--ink)}
+
+.ifaces{display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-top:24px}
+.ifaces a{display:block; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; color:var(--ink)}
+.ifaces a:hover{border-color:var(--accent); text-decoration:none}
+.ifaces b{font:700 .92rem Archivo,sans-serif; display:block}
+.ifaces span{font:400 .8rem/1.45 Archivo,sans-serif; color:var(--muted); display:block; margin-top:3px}
+
+/* cite */
+.citebox{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:28px; margin-top:36px; align-items:start}
+.citebox pre{margin:0; border:1px solid var(--code-line); border-radius:14px; background:var(--code-bg); color:var(--code-ink); padding:20px 22px; overflow-x:auto; font-size:.84rem; line-height:1.6}
+.quote{border-left:3px solid var(--accent); padding:4px 0 4px 20px; font-style:italic; color:var(--muted)}
+.quote .mono{font-style:normal; font-size:.86em}
+
+/* closing band */
+.band{margin-top:110px; background:var(--code-bg); color:#e9eef2; border-radius:20px; padding:48px; display:grid; grid-template-columns:1fr auto; gap:28px; align-items:center}
+.band h2{color:#fff; margin:8px 0 8px; font-size:clamp(1.5rem,2.8vw,2rem)}
+.band p{color:#9aa6b2; font:400 .98rem/1.55 Archivo,sans-serif; max-width:36em}
+.band .eyebrow{color:#8fe0c9}
+.band .btn{background:transparent; border-color:#3a4652; color:#fff}
+.band .btn.primary{background:#4fd1bd; border-color:#4fd1bd; color:#06201c}
+.band .ctas{margin-top:0}
+
+/* footer */
+footer{margin-top:96px; border-top:1px solid var(--line); padding:44px 0 56px; font:400 .84rem/1.6 Archivo,sans-serif; color:var(--faint)}
+.fgrid{display:grid; grid-template-columns:1.4fr repeat(3,1fr); gap:32px}
+.fgrid h4{font:700 .7rem Archivo,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-bottom:10px}
+.fgrid a{display:block; color:var(--muted); padding:2px 0}
+.fgrid a:hover{color:var(--ink)}
+.fgrid a.brand{display:inline-flex; color:var(--ink); margin-bottom:10px}
+.fine{margin-top:36px; padding-top:22px; border-top:1px solid var(--line); display:grid; gap:8px; max-width:70em}
+
+@media (max-width:980px){
+  .bar nav{display:none}
+  .hero{grid-template-columns:minmax(0,1fr); gap:44px; padding-top:52px; padding-bottom:56px}
+  .viewer{max-width:460px}
+  .pipe{grid-template-columns:1fr; gap:0}
+  .pipe li{display:grid; grid-template-columns:40px 1fr; column-gap:18px; padding:0 0 26px}
+  .pipe li::before{grid-row:span 2}
+  .pipe li::after{top:40px; bottom:0; left:20px; right:auto; width:1px; height:auto}
+  .pipe h3{margin:8px 0 4px}
+  .figures{grid-template-columns:1fr 1fr}
+  .figures .fig:last-child{grid-column:span 2}
+  .explorer{grid-template-columns:minmax(0,1fr)}
+  .modelist{flex-direction:row; overflow-x:auto; padding-bottom:4px}
+  .modelist button{flex:0 0 200px}
+  .split{grid-template-columns:minmax(0,1fr); gap:36px}
+  .feat{grid-template-columns:1fr 1fr}
+  .ifaces{grid-template-columns:repeat(3,1fr)}
+  .citebox{grid-template-columns:minmax(0,1fr)}
+  .band{grid-template-columns:minmax(0,1fr); padding:36px 28px}
+  .fgrid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:600px){
+  .wrap{padding:0 16px}
+  section{padding-top:72px}
+  .bar .right .gh span{display:none}
+  .strip ul{grid-template-columns:1fr}
+  .strip li{border-left:0 !important; padding-left:0 !important; border-top:1px solid var(--line)}
+  .strip li:first-child{border-top:0}
+  .figures{grid-template-columns:1fr}
+  .figures .fig:last-child{grid-column:auto}
+  .stage{grid-template-columns:1fr 1fr}
+  .stage figure.sl{grid-column:span 2}
+  .stage figure.sl img{aspect-ratio:auto; max-height:420px; object-fit:contain}
+  .pair{grid-template-columns:1fr 1fr}
+  .feat,.ifaces{grid-template-columns:1fr}
+  .fgrid{grid-template-columns:1fr}
+  .band{border-radius:14px; padding:28px 20px}
+}
+</style>
+<script>
+/* Apply a saved theme before first paint; stays in this browser only. */
+try { var t = localStorage.getItem("radveil-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap bar">
+    <a class="brand" href="./" aria-label="RadVeil home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--accent)"/><path d="M9 22V10h7.5a4 4 0 0 1 0 8H9m7 0 6 4" fill="none" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      RadVeil
+    </a>
+    <nav aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#results">Results</a>
+      <a href="#modes">Modes</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="docs.html">Docs</a>
+      <a href="demo/">Demo</a>
+    </nav>
+    <div class="right">
+      <button class="iconbtn" id="theme" type="button" aria-label="Toggle light or dark theme">
+        <svg class="moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <a class="iconbtn gh" href="https://github.com/rAum/radveil">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
+        <span>Source</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="wrap hero">
+  <div>
+    <div class="eyebrow">Open-source anonymization for head MRI &amp; CT</div>
+    <h1>The face leaves.<br>The data <em>stays</em>.</h1>
+    <p class="lede">RadVeil finds the face in a head scan the way an attacker would &mdash; it renders the
+    volume as a portrait and runs a face detector on it &mdash; then removes it, and accepts the result only
+    when that detector fails on the output. Ears too, on request. Every voxel outside the mask stays bit-exact.</p>
+
+    <div class="install" data-tabs>
+      <div class="tl" role="tablist" aria-label="Install with">
+        <button type="button" role="tab" aria-selected="true" data-cmd="pip install radveil">Python</button>
+        <button type="button" role="tab" aria-selected="false" data-cmd="cargo install radveil-cli">CLI</button>
+        <button type="button" role="tab" aria-selected="false" data-cmd="cargo add radveil-core">Rust</button>
+      </div>
+      <div class="cmd"><span class="p">$</span><code id="cmd">pip install radveil</code><button class="copy" type="button" data-copy="#cmd">Copy</button></div>
+    </div>
+
+    <div class="ctas">
+      <a class="btn primary" href="demo/">Try it in your browser
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      <a class="btn" href="docs.html">Documentation</a>
+    </div>
+    <div class="status">
+      <span class="pill"><i></i>v0.1 &middot; early release</span>
+      <span>Limited validation so far &mdash; <a href="https://github.com/rAum/radveil/blob/main/CHANGELOG.md">what that means</a></span>
+    </div>
+    <p class="metanote"><b>Image data only.</b> Metadata (names, IDs, dates in headers, sidecars or DICOM tags) is not touched &mdash; <a href="#metadata">scrub it separately</a>.</p>
+  </div>
+
+  <figure class="viewer" aria-label="Before and after: the public 3D Slicer MRHead sample, input and adaptive anonymization">
+    <div class="vhead" aria-hidden="true"><span>PATIENT: &#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;
+ID: &#9608;&#9608;&#9608;&#9608;&#9608;&#9608;</span><span class="r">3D SLICER SAMPLE &ldquo;MRHEAD&rdquo;
+T1w &middot; 1&times;1&times;1.3 mm</span></div>
+    <div class="compare" id="compare">
+      <img src="img/site_input.png" alt="Surface render of the MRHead sample before anonymization" width="364" height="404">
+      <img class="after" src="img/site_adaptive.png" alt="The same head after adaptive anonymization" width="364" height="404">
+      <span class="tag l">input</span><span class="tag r">adaptive</span>
+      <div class="handle" aria-hidden="true"></div>
+      <input type="range" min="0" max="100" value="50" aria-label="Drag to compare input and anonymized render">
+    </div>
+    <div class="vfoot" aria-hidden="true"><span>RADVEIL v0.1 &middot; DRAG TO COMPARE</span><span class="r">RE-DETECTION <b>0/3</b>
+OUTSIDE MASK: <b>BIT-EXACT</b></span></div>
+  </figure>
+</div>
+
+<div class="strip">
+  <ul class="wrap">
+    <li><b>Verified, not assumed</b>The output is attacked with a face detector before it is accepted.</li>
+    <li><b>CPU only</b>Its own inference engine. No GPU, PyTorch, ONNX Runtime or TensorFlow.</li>
+    <li><b>Apache-2.0</b>Permissive dependencies only, SBOMs with every release.</li>
+  </ul>
+</div>
+
+<section id="how">
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">How it works</div>
+      <h2>Localize like an attacker. Verify like one too.</h2>
+      <p class="sub">No atlas, no registration. The tool that finds the face is the same class of tool that has
+      to fail on the result &mdash; that symmetry is the whole design.</p>
+    </div>
+    <ol class="pipe">
+      <li><h3>Render</h3><p>A CPU ray caster draws portrait views of the volume, plus a per-pixel map of 3D scanner coordinates. LPS, RAS, oblique or wrong affines are all handled.</p></li>
+      <li><h3>Detect</h3><p>An off-the-shelf 2D face detector, built in and run in pure Rust, looks at the renders &mdash; the attack shared data has to survive.</p></li>
+      <li><h3>Lift</h3><p>Each 2D landmark becomes a millimetre-accurate 3D point via the position map. Views must agree in 3D, or they are rejected.</p></li>
+      <li><h3>Rewrite</h3><p>Face-aligned regions, scaled from the measured inter-eye distance, are blurred, cut, blocked or adaptively averaged. Nothing else changes.</p></li>
+      <li><h3>Verify</h3><p>The result is re-rendered and re-attacked. Still detected? Escalate, up to an opaque fill that ends it by construction.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section id="results">
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">Measured, not promised</div>
+      <h2>Numbers from the evaluation</h2>
+      <p class="sub">On public data. This is an early
+      release: large, diverse validation data was not available, so review outputs before sharing data.</p>
+    </div>
+    <div class="figures">
+      <div class="fig"><div class="v">0/201</div><div class="l">scans where the face region touched the expert brain mask (median clearance 6.6&nbsp;mm)</div></div>
+      <div class="fig"><div class="v">0/201</div><div class="l">faces still detected after <code>adaptive</code> anonymization with verification on</div></div>
+      <div class="fig"><div class="v">106/106</div><div class="l">hand-marked pinnae covered (&ge;95% of the ear surface) on 53 IXI subjects</div></div>
+      <div class="fig"><div class="v">~1&thinsp;s</div><div class="l">per subject end-to-end, verification included, on a laptop CPU (MacBook Pro, Apple M4 Pro, 14 cores)</div></div>
+      <div class="fig"><div class="v">bit-exact</div><div class="l">every voxel outside the exported mask; datatype, scaling and header kept</div></div>
+    </div>
+    <p class="method">Face figures: the public <a href="https://w3id.org/synthstrip">SynthStrip evaluation set</a>
+    (582 scans of many contrasts, with expert brain masks), <code>radveil auto</code>, <code>mode="adaptive"</code>.
+    RadVeil processed 201; the rest were refused, mostly scans without a visible face (already defaced, or a field
+    of view that ends above it) and non-structural series. Ear figures: 106 pinnae hand-marked on 53 public IXI scans;
+    the ear cut modified 0 brain voxels on the 50 IXI T1 with expert brain masks.</p>
+  </div>
+</section>
+
+<section id="modes">
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">Anonymization modes</div>
+      <h2>Four ways to take a face apart</h2>
+      <p class="sub">Pick a mode to see the surface render and the voxels themselves &mdash; a mid-sagittal slice above
+      an axial slice through the orbits, with the region outlined in <span style="color:var(--mask)">amber</span>.</p>
+    </div>
+    <div class="explorer">
+      <div class="modelist" role="tablist" aria-label="Anonymization mode">
+        <button type="button" role="tab" aria-selected="true" data-mode="adaptive" data-img="site_adaptive.png" data-sl="slices_adaptive.png" data-cap="gradient-weighted average">
+          <b>adaptive <small>recommended</small></b><span>The stronger the facial feature, the heavier the kernel.</span></button>
+        <button type="button" role="tab" aria-selected="false" data-mode="blur" data-img="site_blur.png" data-sl="slices_blur.png" data-cap="Gaussian-blurred">
+          <b>blur</b><span>Gaussian blur of the region; gross morphology survives.</span></button>
+        <button type="button" role="tab" aria-selected="false" data-mode="cut" data-img="site_cut-noverify.png" data-sl="slices_cut-noverify.png" data-cap="set to 0 (verification off)">
+          <b>cut</b><span>Background fill (0 on MRI, air on CT). Skin-deep, so the shape can remain &mdash; which verification catches.</span></button>
+        <button type="button" role="tab" aria-selected="false" data-mode="block" data-img="site_block.png" data-sl="slices_block.png" data-cap="constant fill">
+          <b>block</b><span>An opaque slab &mdash; also the guaranteed final escalation step.</span></button>
+      </div>
+      <div class="stage" role="tabpanel" aria-live="polite">
+        <figure><img id="m-in" src="img/site_input.png" alt="Input render of the MRHead sample" width="364" height="404"><figcaption>input</figcaption></figure>
+        <figure><img id="m-out" src="img/site_adaptive.png" alt="adaptive result on the MRHead sample" width="364" height="404"><figcaption id="m-cap">adaptive</figcaption></figure>
+        <figure class="sl"><img id="m-sl" src="img/slices_adaptive.png" alt="Slices after adaptive: gradient-weighted average" width="256" height="438" loading="lazy"><figcaption id="m-slcap">voxels &middot; gradient-weighted average</figcaption></figure>
+      </div>
+    </div>
+    <p class="stagenote">3D Slicer&rsquo;s public &ldquo;MRHead&rdquo; sample, donated by the person pictured for use
+    without restriction, run through <code>radveil auto</code> with default settings. On this head verification escalated
+    <code>blur</code> and <code>adaptive</code> twice before no face was found; verified <code>cut</code> still read as a
+    face and was escalated to a fill, so it is shown with verification off.</p>
+  </div>
+</section>
+
+<section id="ears">
+  <div class="wrap split">
+    <div>
+      <div class="eyebrow">Regions</div>
+      <h2>The ear is a fingerprint too</h2>
+      <p class="sub">Pinna shape is stable over a lifetime and matchable from a surface reconstruction. Ear removal
+      is opt-in &mdash; <code>region</code> defaults to <code>face</code> &mdash; and can use its own mode in the same pass
+      (<code>ear_mode="cut"</code> with an <code>adaptive</code> face).</p>
+      <ul class="points" style="margin-top:26px">
+        <li><div><h3>Measured, not assumed</h3><p>No landmark model emits ear points, so RadVeil turns the volume into a surface height map and finds each pinna as a protrusion above the scalp baseline.</p></div></li>
+        <li><div><h3>Skin-deep at the scalp</h3><p>The medial wall follows the measured scalp and stops at the skull &mdash; the whole pinna goes, the brain is not reached.</p></div></li>
+        <li><div><h3>Tells you when it can&rsquo;t</h3><p>An ear outside the field of view is reported as <code>detected: false</code> with a flagged fallback box &mdash; never silent.</p></div></li>
+      </ul>
+    </div>
+    <div class="pair">
+      <figure><img src="img/side_input.png" alt="Side render of the MRHead sample: the pinna is clearly visible" width="404" height="364" loading="lazy"><figcaption>input &middot; pinna intact</figcaption></figure>
+      <figure><img src="img/side_ears.png" alt="Side render after face+ears anonymization: the pinna is cut away down to the scalp" width="404" height="364" loading="lazy"><figcaption>face+ears &middot; ears cut</figcaption></figure>
+      <figure><img src="img/slices_earcut_input.png" alt="Axial slice through both pinnae of the input" width="404" height="364" loading="lazy"><figcaption>axial, through the pinnae</figcaption></figure>
+      <figure><img src="img/slices_earcut.png" alt="The same axial slice after the ear cut: both pinnae removed, region outlined" width="404" height="364" loading="lazy"><figcaption>both pinnae removed</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="brain">
+  <div class="wrap split">
+    <div class="solo">
+      <figure><img src="img/brain.png" alt="Mid-sagittal slice of the MRHead sample: the extracted brain outlined in blue, the anonymization region in amber, separated by several millimetres" width="512" height="464" loading="lazy">
+        <figcaption><i class="legend" style="background:#60a5fa"></i>brain &nbsp; <i class="legend" style="background:#e3aa4b"></i>region &nbsp;&middot;&nbsp; 0 brain voxels touched, 5.0&nbsp;mm clearance</figcaption></figure>
+    </div>
+    <div>
+      <div class="eyebrow">Brain safety</div>
+      <h2>Takes the face, leaves the brain</h2>
+      <p class="sub">The face region follows the measured skin, about 4.5&nbsp;mm deep, so it stays above the skull.
+      A field-of-view cut that merely <em>looks</em> like a face is refused rather than cut.</p>
+      <ul class="points" style="margin-top:26px">
+        <li><div><h3>Brain guard</h3><p><code>--brain-guard</code> extracts the brain from the input and never modifies it or anything within 3&nbsp;mm of it. On the SynthStrip set: 0 scans touched, closest change 3.6&nbsp;mm.</p></div></li>
+        <li><div><h3>Brain check</h3><p><code>--brain-check</code> reports how many brain voxels changed and how close the region came; the CLI exits with status 3 if any did.</p></div></li>
+        <li><div><h3>Brain extraction</h3><p><code>radveil deskull</code>: SynthStrip ported to pure Rust (any MRI contrast, CT), a classical model-free method, or your own network. Mean Dice 0.969 on the SynthStrip set.</p></div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">Everything it does</div>
+      <h2>Built for pipelines that can&rsquo;t afford surprises</h2>
+    </div>
+    <div class="feat">
+      <div class="card"><h3>Refuses instead of guessing</h3><p>No plausible face, an already-defaced scan, or a &ldquo;face&rdquo; on a field-of-view cut: it raises and writes nothing. Scans that end at the nose opt in with <code>--partial-face</code>.</p></div>
+      <div class="card"><h3>Any orientation, MRI and CT</h3><p>LPS, RAS, oblique and wrong affines (a six-direction sweep finds the face). Air, not 0, fills CT. Datatype, scaling and header are kept.</p></div>
+      <div class="card"><h3>Auditable mask</h3><p>Export the exact anonymization mask; every voxel outside it is bit-identical. <code>anonymization_mask</code> returns the region without changing anything.</p></div>
+      <div class="card"><h3>Two independent detectors</h3><p>A built-in detector (Apache-2.0 models), optional dlib with its CC0 5-point model as an alternative or <code>fallback_detector</code>, or plug in your own.</p></div>
+      <div class="card"><h3>Batch and services</h3><p><code>deface_batch</code> on threads (~11 scans/s on 14 cores); bytes in, bytes out with <code>Volume.from_bytes</code> for services.</p></div>
+      <div class="card"><h3>Tunable verification</h3><p>Re-attacked from every detected yaw and tilted 15&deg;; <code>--verify-effort</code> trades speed against attack angles. Opt-ins for chin, lower lip and untouched background air.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="quickstart">
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">Quickstart</div>
+      <h2>Three lines to a verified deface</h2>
+      <p class="sub">One Rust core sits behind every interface, so parameters and reports are the same wherever you call it from.</p>
+    </div>
+    <div class="codecard" data-tabs>
+      <div class="tl" role="tablist" aria-label="Example language">
+        <button type="button" role="tab" aria-selected="true" data-pane="q-py">Python</button>
+        <button type="button" role="tab" aria-selected="false" data-pane="q-sh">CLI</button>
+        <button class="copy" type="button" data-copy=".codecard pre:not([hidden])">Copy</button>
+      </div>
+<pre id="q-py"><code><span class="k">import</span> radveil
+
+report = radveil.<span class="f">deface_auto</span>(<span class="s">"t1.nii.gz"</span>, <span class="s">"t1_defaced.nii.gz"</span>, mode=<span class="s">"adaptive"</span>)
+<span class="c"># {'views_detected': 3, 'residual_detections': 0, 'eye_dist_mm': 63.1, ...}</span>
+
+<span class="c"># ears are biometric too: opt in per call, face-only stays the default</span>
+report = radveil.<span class="f">deface_auto</span>(<span class="s">"t1.nii.gz"</span>, <span class="s">"t1_defaced.nii.gz"</span>, region=<span class="s">"face+ears"</span>)
+<span class="c"># rois: [{'label': 'ear_left', 'detected': True, 'protrusion_mm': 14.0}, ...]</span></code></pre>
+<pre id="q-sh" hidden><code><span class="c"># the built-in detector, verification on, adaptive mode</span>
+<span class="f">radveil</span> auto t1.nii.gz t1_defaced.nii.gz --mode adaptive
+
+<span class="c"># face and ears, keeping the brain out of reach</span>
+<span class="f">radveil</span> auto t1.nii.gz t1_defaced.nii.gz --region face+ears --brain-guard</code></pre>
+    </div>
+    <div class="refusal">
+      <div class="mark">!</div>
+      <p><b>Refusal is a feature.</b> On non-head data, already-defaced scans, or anything where no plausible face
+      survives cross-view consensus, RadVeil raises instead of writing output &mdash; a defacer that guesses is a
+      defacer that silently corrupts. Treat refusals as items for human review.</p>
+    </div>
+    <div class="refusal" id="metadata">
+      <div class="mark">i</div>
+      <p><b>Only the volumetric image data is anonymized &mdash; no metadata.</b> RadVeil changes voxels and nothing
+      else. Patient names, IDs, dates and site details in the NIfTI header and extensions, JSON sidecars or DICOM tags
+      are kept exactly as they were. Remove them with your own de-identification tooling before you share data.</p>
+    </div>
+    <div class="ifaces">
+      <a href="docs.html#ref-python"><b>Python</b><span><code>deface_auto</code>, <code>deface_volume</code>, <code>deface_batch</code></span></a>
+      <a href="docs.html#ref-cli"><b>CLI</b><span><code>radveil auto</code>, <code>deskull</code>; no Python needed</span></a>
+      <a href="docs.html#ref-c"><b>C / C++</b><span><code>libradveil</code> + <code>radveil.h</code></span></a>
+      <a href="docs.html#ref-rust"><b>Rust</b><span><code>radveil-core</code>, custom detectors via a trait</span></a>
+      <a href="demo/"><b>Browser</b><span>WebAssembly; the scan stays on your machine</span></a>
+    </div>
+  </div>
+</section>
+
+<section id="cite">
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">Citation</div>
+      <h2>If it saved you a week, cite it</h2>
+      <p class="sub">Defacing is a methods detail reviewers increasingly ask about. Naming the tool and version
+      makes your anonymization reproducible.</p>
+    </div>
+    <div class="citebox">
+<pre><code>@software{radveil,
+  author  = {Gr&oacute;dek, Piotr},
+  title   = {{RadVeil: CPU-only face and ear anonymization
+              for volumetric head imaging}},
+  url     = {https://github.com/rAum/radveil},
+  version = {0.1.0},
+  year    = {2026}
+}</code></pre>
+      <div>
+        <p class="ui" style="font:600 .82rem Archivo,sans-serif; color:var(--faint); margin-bottom:10px">A methods sentence you can paste</p>
+        <p class="quote">&ldquo;Facial and auricular surfaces were removed with RadVeil v0.1.0
+        (<span class="mono">region="face+ears"</span>, <span class="mono">mode="adaptive"</span>), which verifies
+        each output by re-rendering the volume and re-running the face detector; all voxels outside the
+        anonymization mask are unchanged.&rdquo;</p>
+      </div>
+    </div>
+
+    <div class="band">
+      <div>
+        <div class="eyebrow">No install needed</div>
+        <h2>Drop a NIfTI file, watch the face go</h2>
+        <p>The demo runs the same Rust core compiled to WebAssembly. Nothing is uploaded; close the tab and it is gone.</p>
+      </div>
+      <div class="ctas">
+        <a class="btn primary" href="demo/">Open the demo</a>
+        <a class="btn" href="docs.html">Read the docs</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="fgrid">
+      <div>
+        <a class="brand" href="./"><svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--accent)"/><path d="M9 22V10h7.5a4 4 0 0 1 0 8H9m7 0 6 4" fill="none" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>RadVeil</a>
+        <p>&copy; 2026 Piotr Gr&oacute;dek and the RadVeil contributors.<br>Licensed under <a href="LICENSE.txt">Apache-2.0</a>.</p>
+      </div>
+      <div><h4>Project</h4><a href="docs.html">Documentation</a><a href="demo/">Browser demo</a><a href="https://github.com/rAum/radveil">Source code</a><a href="https://pypi.org/project/radveil/">PyPI</a></div>
+      <div><h4>Use it well</h4><a href="https://github.com/rAum/radveil/blob/main/docs/legal.md">Legal &amp; data governance</a><a href="https://github.com/rAum/radveil/blob/main/SECURITY.md">Security policy</a><a href="https://github.com/rAum/radveil/blob/main/CITATION.cff">Citation file</a></div>
+      <div><h4>Licenses</h4><a href="NOTICE.txt">NOTICE</a><a href="THIRD_PARTY_LICENSES.txt">Third-party licenses</a><a href="fonts/README.md">Font licenses</a></div>
+    </div>
+    <div class="fine">
+      <p>RadVeil is a free, open-source project developed in the author&rsquo;s spare time. It is not affiliated
+      with, sponsored or endorsed by, and does not represent any current or former employer of the author.
+      Provided &ldquo;as is&rdquo;, without warranty. Not a medical device.</p>
+      <p>Includes the MediaPipe BlazeFace and Face Mesh models by Google (Apache-2.0) and the SynthStrip weights by
+      Hoopes et al. (MIT). The optional dlib detector (Boost license) defaults to dlib&rsquo;s CC0 5-point model; its
+      research-only 68-point models are never selected implicitly. Third-party names identify components only and
+      do not imply endorsement. Images: 3D Slicer &ldquo;MRHead&rdquo; sample data, donated to the 3D Slicer project
+      by the person pictured to be used without restriction; generated by <code>tools/make_site_images.py</code>.</p>
+      <p>This site sets no cookies, runs no analytics and loads nothing from third parties.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // Theme toggle; the choice is remembered in this browser only.
+  var root = document.documentElement;
+  document.getElementById("theme").addEventListener("click", function () {
+    var dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("radveil-theme", root.dataset.theme); } catch (e) {}
+  });
+
+  // Before/after slider.
+  var cmp = document.getElementById("compare"), range = cmp.querySelector("input");
+  function setPos(v) { cmp.style.setProperty("--pos", v + "%"); }
+  range.addEventListener("input", function () { setPos(range.value); });
+  setPos(range.value);
+
+  // Tab groups (install commands, quickstart languages).
+  document.querySelectorAll("[data-tabs]").forEach(function (group) {
+    var tabs = group.querySelectorAll('[role="tab"]');
+    tabs.forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        tabs.forEach(function (t) { t.setAttribute("aria-selected", t === tab ? "true" : "false"); });
+        if (tab.dataset.cmd) group.querySelector("code").textContent = tab.dataset.cmd;
+        if (tab.dataset.pane) group.querySelectorAll("pre").forEach(function (p) { p.hidden = p.id !== tab.dataset.pane; });
+      });
+    });
+  });
+
+  // Copy buttons.
+  document.querySelectorAll(".copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var el = document.querySelector(btn.dataset.copy);
+      if (!el || !navigator.clipboard) return;
+      navigator.clipboard.writeText(el.innerText.trim()).then(function () {
+        btn.textContent = "Copied"; btn.classList.add("done");
+        setTimeout(function () { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1400);
+      }, function () {});
+    });
+  });
+
+  // Mode explorer.
+  var modes = document.querySelectorAll(".modelist button");
+  modes.forEach(function (b) {
+    b.addEventListener("click", function () {
+      modes.forEach(function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); });
+      var m = b.dataset.mode;
+      var out = document.getElementById("m-out"), sl = document.getElementById("m-sl");
+      out.src = "img/" + b.dataset.img; out.alt = m + " result on the MRHead sample";
+      sl.src = "img/" + b.dataset.sl; sl.alt = "Slices after " + m + ": " + b.dataset.cap;
+      document.getElementById("m-cap").textContent = m;
+      document.getElementById("m-slcap").textContent = "voxels · " + b.dataset.cap;
+    });
+  });
+})();
+</script>
+</body>
+</html>

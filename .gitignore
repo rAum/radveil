@@ -24,7 +24,6 @@ __pycache__/
 
 # Local outputs
 renders/
-experiments/results/
 
 # Copied into the site by the Pages workflow
 site/LICENSE.txt
@@ -34,3 +33,5 @@ site/THIRD_PARTY_LICENSES.txt
 # Docs example crate (built with CARGO_TARGET_DIR or locally)
 tools/docs_site/examples/rs/Cargo.lock
 tools/docs_site/examples/rs/target/
+# macOS Finder metadata
+.DS_Store

@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+title: "RadVeil: CPU-only face and ear anonymization for volumetric head imaging"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: "Gródek"
+    given-names: "Piotr"
+license: Apache-2.0
+repository-code: "https://github.com/rAum/radveil"
+url: "https://rAum.github.io/radveil/"
+version: 0.1.0
+date-released: 2026-10-24
+abstract: >-
+  RadVeil removes identifiable facial and auricular (ear) surfaces from
+  NIfTI head MRI and CT. It localizes the face the way an attacker would --
+  rendering the volume as a portrait and running a 2D face detector -- and
+  accepts an anonymization only when re-detection on the output fails. Ears
+  are located from surface evidence (protrusion detection against a scalp
+  baseline) rather than fixed anatomical offsets. Every voxel outside the
+  exported mask is preserved bit-exact, with datatype, scaling and header
+  intact.
+keywords:
+  - defacing
+  - anonymization
+  - de-identification
+  - face removal
+  - ear anonymization
+  - biometric privacy
+  - MRI
+  - CT
+  - NIfTI
+  - DICOM
+  - neuroimaging
+  - medical imaging
+  - HIPAA
+  - GDPR

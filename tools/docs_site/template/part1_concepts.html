@@ -1,0 +1,75 @@
+
+<h3 id="coordinates">Volumes &amp; coordinates<a class="anchor" href="#coordinates">#</a></h3>
+<ul>
+  <li>A <strong>volume</strong> is a 3D voxel array plus a 4×4 voxel→world affine. World coordinates are NIfTI
+  <strong>RAS+ millimetres</strong>: +x right, +y anterior, +z superior.</li>
+  <li>Any storage orientation works (<code>RAS</code>, <code>LPS</code>, <code>PIR</code>, oblique). If the stored
+  orientation is wrong, a six-direction sweep finds the face anyway and the report says
+  <code>orientation_sweep: true</code>.</li>
+  <li>Arrays are indexed <code>(i, j, k)</code> in voxel order. Masks come back on the <em>same grid</em> as the input,
+  so <code>mask[i, j, k]</code> refers to <code>data[i, j, k]</code>. In C they are flat, C-order, <code>k</code> fastest.</li>
+  <li>Intensities are read with the NIfTI scaling applied; saving writes them back with the original datatype,
+  <code>scl_slope</code>/<code>scl_inter</code> and header.</li>
+</ul>
+
+<h3 id="modes">Modes &amp; regions<a class="anchor" href="#modes">#</a></h3>
+<div class="tablewrap"><table>
+<tr><th>Mode</th><th>What happens inside the region</th></tr>
+<tr><td><code>blur</code></td><td class="d">Gaussian blur (σ auto-scaled, ~10 mm). Gross morphology survives. The default.</td></tr>
+<tr><td><code>adaptive</code></td><td class="d">Gradient-weighted averaging: the stronger the facial feature, the heavier the kernel. Recommended.</td></tr>
+<tr><td><code>cut</code></td><td class="d">Background fill: ~0 on MRI, air on CT (never water-density 0 HU).</td></tr>
+<tr><td><code>block</code></td><td class="d">Opaque constant fill. Also the final escalation step of verification.</td></tr>
+</table></div>
+<div class="figs">
+  <figure><img src="img/site_blur.png" alt="blur result on the MRHead sample" loading="lazy"><figcaption><code>blur</code></figcaption></figure>
+  <figure><img src="img/site_adaptive.png" alt="adaptive result on the MRHead sample" loading="lazy"><figcaption><code>adaptive</code></figcaption></figure>
+  <figure><img src="img/site_cut-noverify.png" alt="cut result with verification off" loading="lazy"><figcaption><code>cut</code> (verification off)</figcaption></figure>
+  <figure><img src="img/site_block.png" alt="block result" loading="lazy"><figcaption><code>block</code></figcaption></figure>
+</div>
+<div class="figs">
+  <figure><img src="img/slices_input.png" alt="input: sagittal and axial slices" loading="lazy"><figcaption>input voxels</figcaption></figure>
+  <figure><img src="img/slices_adaptive.png" alt="adaptive: region outlined" loading="lazy"><figcaption><code>adaptive</code>, region outlined</figcaption></figure>
+  <figure><img src="img/slices_cut-noverify.png" alt="cut: region set to background" loading="lazy"><figcaption><code>cut</code>: set to background</figcaption></figure>
+  <figure><img src="img/slices_block.png" alt="block: constant fill" loading="lazy"><figcaption><code>block</code>: constant fill</figcaption></figure>
+</div>
+<p class="small">3D Slicer&rsquo;s public &ldquo;MRHead&rdquo; sample, <code>radveil auto</code> with default settings
+(<code>tools/make_site_images.py</code>). On this head verification escalated <code>blur</code> and
+<code>adaptive</code> twice; verified <code>cut</code> still read as a face and was escalated to a fill, so it is
+shown with verification off.</p>
+<p><strong>Regions:</strong> <code>face</code> (default), <code>ears</code> or <code>face+ears</code>. The pinna is a
+biometric identifier too. No landmark model emits ear points, so each pinna is found by measuring the head surface,
+and the report says per ear whether it was <code>detected</code> or fell back to an anthropometric window.
+Verification is skipped for <code>ears</code> alone, since the face legitimately remains. <code>ear_mode</code>
+sets a different mode for the ears in the same pass, e.g. <code>adaptive</code> face and <code>cut</code> ears
+(recommended: blur leaves 10–16% of the pinna surface in place).</p>
+<div class="figs">
+  <figure><img src="img/side_input.png" alt="side view of the input, pinna intact" loading="lazy"><figcaption>input, side view</figcaption></figure>
+  <figure><img src="img/side_ears.png" alt="side view after face+ears with ear_mode cut" loading="lazy"><figcaption><code>face+ears</code>, <code>ear_mode="cut"</code></figcaption></figure>
+  <figure><img src="img/slices_earcut_input.png" alt="axial slice through both pinnae" loading="lazy"><figcaption>axial slice through the pinnae</figcaption></figure>
+  <figure><img src="img/slices_earcut.png" alt="the same slice after the ear cut, region outlined" loading="lazy"><figcaption>after: both pinnae detected and removed</figcaption></figure>
+</div>
+
+<h3 id="safety">Safety model<a class="anchor" href="#safety">#</a></h3>
+<div class="grid">
+  <div class="card"><h4>Refuses rather than guesses</h4><p>No plausible face (non-head data, already defaced), candidates that fail 3D shape consensus, or a "face" on a field-of-view cut: nothing is modified and an error is raised.</p></div>
+  <div class="card"><h4>Skin-deep</h4><p>The region follows the measured skin: the air in front of the face, nose and lips, and <code>skin_depth_mm</code> (~4.5 mm) of skin, chosen to stay above the skull.</p></div>
+  <div class="card"><h4>Verified</h4><p>The output is re-rendered and re-detected from every detected yaw, also at 0° and −15° pitch
+(<code>verify_pitches</code>), from a grid of angles around the face (<code>verify_effort</code>: <code>fast</code>, <code>balanced</code>, <code>thorough</code>), and always by the built-in detector too. Blur escalates (σ×1.6 per round), then an opaque fill. Escalations reuse the first region, so they never cut deeper.</p></div>
+  <div class="card"><h4>Bit-exact elsewhere, brain guard on request</h4><p>Only voxels inside the exported mask change. The opt-in <code>brain_guard</code> extracts the brain and never modifies anything within 3 mm of it.</p></div>
+</div>
+<div class="figs one">
+  <figure><img src="img/brain.png" alt="mid-sagittal slice: extracted brain outlined in blue, anonymization region in amber" loading="lazy"><figcaption>Brain (built-in SynthStrip, blue) and anonymization region (amber) on MRHead: no overlap, 5.0 mm minimum clearance.</figcaption></figure>
+</div>
+<p>On the public SynthStrip evaluation set (582 scans with expert brain masks), RadVeil processed 201 and refused
+the rest. The region touched the brain mask on none of them (closest 1.3 mm), and no face was re-detected after
+<code>adaptive</code> anonymization, at 1.25 s per scan. With the
+opt-in brain guard no scan was touched (closest change 3.6 mm), for one brain extraction more: about 4 s and 3.2 GB
+per scan. Header metadata (names, IDs, dates) is <strong>not</strong> scrubbed: that stays
+with your de-identification pipeline.</p>
+
+<h3 id="auto">Auto parameters<a class="anchor" href="#auto">#</a></h3>
+<p>Every geometric parameter is optional. Left unset, it is scaled from <em>d</em>, the measured distance between the
+eyes, so adults, children and phantoms need no tuning. Set a value in millimetres to override it; the report always
+contains the resolved values. The full list, with the name in each language, is in the
+<a href="#params">parameter table</a>.</p>
+</section>

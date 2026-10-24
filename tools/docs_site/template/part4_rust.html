@@ -1,0 +1,134 @@
+
+<!-- ============================================================ RUST -->
+<section class="part" id="ref-rust">
+<div class="eyebrow">Reference</div>
+<h2>Rust</h2>
+
+<h3 id="rs-crate">Crate &amp; features<a class="anchor" href="#rs-crate">#</a></h3>
+<p><code>radveil-core</code> is the engine behind every interface. Pure Rust, CPU-only, MSRV 1.98. Pipeline functions
+return <code>Result&lt;_, String&gt;</code> (a refusal or error message); file I/O returns <code>VolumeError</code>.
+Both convert into <code>Box&lt;dyn Error&gt;</code>, so <code>?</code> works in <code>main</code>.</p>
+<div class="tablewrap"><table>
+<tr><th>Feature</th><th>Default</th><th>Adds</th></tr>
+<tr><td><code>detector</code></td><td>on</td><td class="d"><code>MediaPipeDetector</code>: BlazeFace + Face Mesh v2, embedded, run by <code>tract</code>.</td></tr>
+<tr><td><code>synthstrip</code></td><td>on</td><td class="d">SynthStrip brain extraction (embedded weights), needed for <code>brain_check</code>.</td></tr>
+<tr><td><code>rvbrain</code></td><td>on</td><td class="d">Engine for RadVeil's own smaller brain network, loaded from a <code>.rvb</code> file (no weights ship yet).</td></tr>
+</table></div>
+[[code toml]]
+[dependencies]
+radveil-core = "0.1"
+# only rendering + anonymization with your own landmarks, no embedded models:
+# radveil-core = { version = "0.1", default-features = false }
+[[/code]]
+
+<div class="api" id="rs-Volume"><code class="sig">pub struct <span class="name">Volume</span> { pub data: Array3&lt;f32&gt;, pub affine: Mat4, pub spacing: [f64; 3], pub header: NiftiHeader, … }</code><div class="body">
+<span class="kind">struct</span>
+<table>
+<tr><td><code>Volume::load(path) -&gt; Result&lt;Volume, VolumeError&gt;</code></td><td class="d">Read <code>.nii</code>/<code>.nii.gz</code>; <code>data</code> holds scaled intensities.</td></tr>
+<tr><td><code>Volume::from_array(data: Array3&lt;f32&gt;, affine: Mat4) -&gt; Volume</code></td><td class="d">Wrap an array and a voxel→RAS+ affine (<code>Mat4 = [[f64; 4]; 4]</code>, row-major).</td></tr>
+<tr><td><code>Volume::from_bytes(bytes: &amp;[u8]) -&gt; Result&lt;Volume, VolumeError&gt;</code> · <code>to_bytes(gzip_level: Option&lt;u32&gt;)</code></td><td class="d">Parse <code>.nii</code>/<code>.nii.gz</code> content and encode it back (<code>None</code> = uncompressed), with no file system.</td></tr>
+<tr><td><code>shape() -&gt; [usize; 3]</code> · <code>orientation() -&gt; String</code> · <code>percentile(pct: f64) -&gt; f32</code></td><td class="d">Geometry and intensity helpers.</td></tr>
+<tr><td><code>save(path)</code> · <code>save_with_compression(path, gzip_level: u32)</code></td><td class="d">Write with the original header, datatype and scaling.</td></tr>
+</table>
+</div></div>
+
+<div class="api" id="rs-deface_auto"><code class="sig">pub fn <span class="name">deface_auto</span>(vol: &amp;mut Volume, det: &amp;mut dyn FaceDetector, params: &amp;AutoParams)
+    -&gt; Result&lt;AutoReport, String&gt;</code><div class="body">
+<span class="kind">function</span>
+<p>The full pipeline, modifying <code>vol</code> in place. On <code>Err</code> the volume is untouched. Use
+<code>&amp;mut MediaPipeDetector::default()</code> for the built-in detector.</p>
+</div></div>
+
+<div class="api" id="rs-anonymization_mask"><code class="sig">pub fn <span class="name">anonymization_mask</span>(vol: &amp;Volume, det: &amp;mut dyn FaceDetector, params: &amp;AutoParams)
+    -&gt; Result&lt;AutoReport, String&gt;</code><div class="body">
+<span class="kind">escape hatch</span>
+<p>Detection, validation, refusals and (with <code>brain_check</code>) the brain check, then stop:
+<code>report.mask</code> is always <code>Some</code>, verification fields are <code>None</code>, and the volume is
+borrowed immutably. See the <a href="#g-region">guide</a>.</p>
+</div></div>
+
+<div class="api" id="rs-AutoParams"><code class="sig">pub struct <span class="name">AutoParams</span> { … }   // Default = the Python defaults
+pub struct <span class="name">AutoReport</span> { … }   // Serialize</code><div class="body">
+<span class="kind">structs</span>
+<table>
+<tr><th><code>AutoParams</code> field</th><th>Default</th><th></th></tr>
+<tr><td><code>deface: DefaceParams</code></td><td>auto</td><td class="d">Mode, region and geometry (<a href="#rs-deface">below</a>).</td></tr>
+<tr><td><code>yaws: Vec&lt;f64&gt;</code> · <code>pitch: f64</code> · <code>size: usize</code></td><td><code>[-20, 0, 20]</code> · 0 · 512</td><td class="d">Detection views.</td></tr>
+<tr><td><code>threshold_frac: f32</code> · <code>threshold: Option&lt;f32&gt;</code></td><td>0.14 · None</td><td class="d">Skin surface threshold.</td></tr>
+<tr><td><code>verify</code> · <code>max_verify_rounds</code> · <code>escalate_to_block</code></td><td>true · 3 · true</td><td class="d">Verification loop.</td></tr>
+<tr><td><code>verify_pitches: Vec&lt;f64&gt;</code></td><td><code>[0, -15]</code></td><td class="d">Pitches every detected view is also re-checked at during verification.</td></tr>
+<tr><td><code>verify_effort: VerifyEffort</code></td><td><code>Balanced</code></td><td class="d">Grid of extra verification views around the face: <code>Fast</code> (none), <code>Balanced</code> (3×3), <code>Thorough</code> (5×5). Implements <code>FromStr</code>.</td></tr>
+<tr><td><code>auto_threshold: bool</code></td><td>false</td><td class="d">Noisy, dim scans: retry at 0.3 and 0.45 × p99 when no face is found.</td></tr>
+<tr><td><code>partial_face: bool</code></td><td>false</td><td class="d">Faces cut by the field of view (an axial slab ending at the nose): pitched detection views, a frame from eyes and nose, <code>level_face</code> skin, and a wider verification grid.</td></tr>
+<tr><td><code>verify_with_builtin: bool</code></td><td>true</td><td class="d">Also verify with the built-in <code>MediaPipeDetector</code> (feature <code>detector</code>), whatever <code>det</code> is.</td></tr>
+<tr><td><code>brain_guard: bool</code> · <code>brain_guard_mm: f64</code></td><td>false · 3.0</td><td class="d">Opt-in: never modify the extracted brain or anything within the margin (feature <code>synthstrip</code>).</td></tr>
+<tr><td><code>return_mask: bool</code> · <code>brain_check: bool</code></td><td>false · false</td><td class="d">Mask in the report; brain voxels modified and clearance in <code>report.brain</code>.</td></tr>
+</table>
+<p><code>AutoReport</code> carries <code>deface: DefaceReport</code>, <code>frame: FaceFrame</code>,
+<code>views_detected</code>, <code>orientation</code>, <code>orientation_sweep</code>, <code>landmarks_3d</code>,
+<code>views</code>, <code>verify_rounds</code>, <code>residual_detections</code>, <code>escalated_to_block</code>,
+<code>final_blur_sigma_mm</code>, <code>mask: Option&lt;Array3&lt;u8&gt;&gt;</code> and <code>brain:
+Option&lt;BrainCheck&gt;</code> (see the <a href="#py-report">report keys</a>).</p>
+</div></div>
+
+<div class="api" id="rs-plan"><code class="sig">pub fn <span class="name">plan</span>(volume: &amp;Volume, frame: &amp;FaceFrame, params: &amp;DefaceParams) -&gt; DefacePlan
+pub fn <span class="name">apply</span>(volume: &amp;mut Volume, frame: &amp;FaceFrame, plan: &amp;DefacePlan,
+             mode: DefaceMode, blur_sigma_mm: Option&lt;f64&gt;) -&gt; (DefaceReport, Array3&lt;u8&gt;)
+pub fn <span class="name">plan_mask</span>(volume: &amp;Volume, frame: &amp;FaceFrame, plan: &amp;DefacePlan,
+                 mode: DefaceMode) -&gt; (DefaceReport, Array3&lt;u8&gt;)</code><div class="body">
+<span class="kind">building blocks</span>
+<p><code>plan</code> measures the region on the <em>original</em> volume (skin surface, ears).
+<code>apply</code> rewrites it; re-applying a plan never reaches beyond its first mask, which is how verification
+escalates safely. <code>plan_mask</code> rasterizes it without touching the volume.
+<code>DefacePlan::face_only()</code> restricts it to the face; <code>face_seen_through_air()</code> returns
+<code>Some(false)</code> when the "face" lies on a field-of-view cut. <code>with_protected(mask)</code> adds voxels that
+must never be rewritten (the brain guard uses it); <code>DefaceReport::protected_voxels_spared</code> counts them.</p>
+</div></div>
+
+<div class="api" id="rs-deface"><code class="sig">pub fn <span class="name">deface</span>(volume: &amp;mut Volume, frame: &amp;FaceFrame, params: &amp;DefaceParams)
+    -&gt; (DefaceReport, Array3&lt;u8&gt;)
+pub fn <span class="name">face_frame_from_landmarks</span>(lm: &amp;[Option&lt;Vec3&gt;]) -&gt; Result&lt;FaceFrame, String&gt;</code><div class="body">
+<span class="kind">function</span>
+<p>Anonymize from your own 68 world-space landmarks (<code>plan</code> + <code>apply</code>; no detection, no
+verification). <code>DefaceParams</code> derives <code>Default</code>: <code>mode: DefaceMode</code>
+(<code>Blur</code>, <code>Adaptive</code>, <code>Cut</code>, <code>Block</code>), <code>ear_mode:
+Option&lt;DefaceMode&gt;</code> (<code>None</code> = same as <code>mode</code>), <code>region: Region</code>
+(<code>Face</code>, <code>Ears</code>, <code>FaceAndEars</code>), and every geometry field of the
+<a href="#params">parameter table</a> as <code>Option&lt;f64&gt;</code> (<code>None</code> = auto). The opt-ins <code>spare_air</code> and <code>level_face</code> are <code>bool</code> (default <code>false</code>). Both enums
+implement <code>FromStr</code> (<code>"adaptive".parse()</code>, <code>"face+ears".parse()</code>).</p>
+</div></div>
+
+<div class="api" id="rs-FaceDetector"><code class="sig">pub trait <span class="name">FaceDetector</span> {
+    fn detect(&amp;mut self, rgb: &amp;[u8], w: usize, h: usize, try_rotations: bool)
+        -&gt; Result&lt;Option&lt;Detection&gt;, String&gt;;
+}
+pub struct <span class="name">Detection</span> { pub landmarks: Vec&lt;[f64; 2]&gt;, pub score: f64 }</code><div class="body">
+<span class="kind">trait</span>
+<p>Plug in any 2D model: return the 68 landmarks in the standard 68-point (iBUG) order in pixel coordinates of the RGB8 image, or
+<code>None</code>. <code>MediaPipeDetector</code> implements it (<code>MediaPipeDetector::default()</code>, or
+<code>::new(DetectorParams { min_score, min_presence })</code>). Example in the <a href="#g-detector">guide</a>.</p>
+</div></div>
+
+<div class="api" id="rs-deskull"><code class="sig">pub fn <span class="name">brain_mask</span>(volume: &amp;Volume, params: &amp;DeskullParams)
+    -&gt; Result&lt;(Array3&lt;u8&gt;, DeskullReport), String&gt;
+pub fn <span class="name">deskull</span>(volume: &amp;mut Volume, params: &amp;DeskullParams)
+    -&gt; Result&lt;(Array3&lt;u8&gt;, DeskullReport), String&gt;</code><div class="body">
+<span class="kind">function</span>
+<p>Brain extraction. <code>deskull</code> also strips the volume in place. <code>DeskullParams</code> derives
+<code>Default</code> (SynthStrip, modality auto); <code>method: Method</code> is <code>SynthStrip</code>,
+<code>RvBrain</code> or <code>Classical</code>, <code>modality: Modality</code> is <code>Auto</code>,
+<code>Mri</code> or <code>Ct</code>. Custom extractors implement <code>BrainExtractor</code> and run through
+<code>brain_mask_with</code>.</p>
+</div></div>
+
+<div class="api" id="rs-render"><code class="sig">pub fn <span class="name">render_view</span>(volume: &amp;Volume, yaw_deg: f64, pitch_deg: f64, params: &amp;RenderParams)
+    -&gt; RenderView
+pub fn <span class="name">locate_face</span>(vol: &amp;Volume, det: &amp;mut dyn FaceDetector, params: &amp;AutoParams)
+    -&gt; Result&lt;LocatedFace, String&gt;</code><div class="body">
+<span class="kind">function</span>
+<p><code>render_view</code> returns <code>rgb</code>, a per-pixel world position map (<code>pos</code>, NaN =
+miss), <code>hit</code> and the camera; <code>view.world_at(x, y, max_radius)</code> lifts a pixel to RAS+ mm.
+<code>RenderParams { size, threshold_frac, threshold_abs, step_mm }</code>. <code>locate_face</code> runs detection
+and validation only and returns the <code>FaceFrame</code>, 3D landmarks and the views used.</p>
+</div></div>
+</section>

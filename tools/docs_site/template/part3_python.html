@@ -1,0 +1,158 @@
+
+<!-- ============================================================ PYTHON -->
+<section class="part" id="ref-python">
+<div class="eyebrow">Reference</div>
+<h2>Python</h2>
+<p><code>import radveil</code>. Functions take NIfTI paths or <a href="#py-Volume"><code>Volume</code></a> objects and
+return plain dictionaries (see <a href="#py-report">report dictionary</a>). Refusals raise <code>RuntimeError</code>;
+unknown parameters or modes raise <code>ValueError</code>. The heavy work releases the GIL.</p>
+
+<div class="api" id="py-deface_auto"><code class="sig">radveil.<span class="name">deface_auto</span>(input_path, output_path, mode="blur", mask_path=None,
+                    qa_dir=None, gzip_level=1, **kwargs) -&gt; dict</code><div class="body">
+<span class="kind">function</span>
+<p>File to file: load, <a href="#py-deface_volume"><code>deface_volume</code></a>, save. The simplest complete call.</p>
+<h4>Parameters</h4>
+<table>
+<tr><td><code>input_path</code>, <code>output_path</code></td><td class="d"><code>.nii</code> or <code>.nii.gz</code>. Nothing is written if the volume is refused.</td></tr>
+<tr><td><code>mode</code></td><td class="d"><code>"blur"</code> · <code>"adaptive"</code> · <code>"cut"</code> · <code>"block"</code></td></tr>
+<tr><td><code>mask_path</code></td><td class="d">Also write the uint8 mask of changed voxels (needs nibabel).</td></tr>
+<tr><td><code>qa_dir</code></td><td class="d">Write before/after renders with landmark overlays here.</td></tr>
+<tr><td><code>gzip_level</code></td><td class="d">0–9; 1 is ~5× faster than 6 for ~3% larger files.</td></tr>
+<tr><td><code>**kwargs</code></td><td class="d">Anything <a href="#py-deface_volume"><code>deface_volume</code></a> accepts: <code>region</code>, <code>ear_mode</code>, <code>detector</code>, <code>fallback_detector</code>, <code>verify</code>, <code>brain_check</code>, geometry…</td></tr>
+</table>
+<h4>Returns</h4><p>The <a href="#py-report">report</a>, JSON-ready: per-view entries keep only angles and scores, plus <code>output</code> and <code>mask_path</code>.</p>
+</div></div>
+
+<div class="api" id="py-deface_volume"><code class="sig">radveil.<span class="name">deface_volume</span>(vol, mode="blur", region="face", yaws=(-20.0, 0.0, 20.0),
+    pitch=0.0, size=512, detector="mediapipe", predictor_path=None,
+    fallback_detector=None, fallback_brain_guard=True,
+    verify=True, max_verify_rounds=3, verify_pitches=(0.0, -15.0), verify_effort="balanced",
+    partial_face=False, auto_threshold=False,
+    escalate_to_block=True, brain_check=False, brain_guard=False, brain_guard_mm=3.0,
+    threshold_frac=0.14, threshold=None, detector_upsample=1,
+    return_mask=False, **deface_kwargs) -&gt; dict</code><div class="body">
+<span class="kind">function</span>
+<p>The full pipeline on an in-memory <code>Volume</code>, modified in place: render, detect, validate, lift,
+anonymize, verify. Same code as <code>radveil auto</code>.</p>
+<h4>Parameters</h4>
+<table>
+<tr><td><code>vol</code></td><td class="d">A <a href="#py-Volume"><code>Volume</code></a>.</td></tr>
+<tr><td><code>region</code></td><td class="d"><code>"face"</code> · <code>"ears"</code> · <code>"face+ears"</code></td></tr>
+<tr><td><code>ear_mode</code> (keyword)</td><td class="d">Mode for the ear regions; default the same as <code>mode</code>. E.g. <code>mode="adaptive", ear_mode="cut"</code>.</td></tr>
+<tr><td><code>yaws</code>, <code>pitch</code>, <code>size</code></td><td class="d">Detection views: yaw angles and pitch in degrees, render size in pixels.</td></tr>
+<tr><td><code>detector</code>, <code>predictor_path</code></td><td class="d"><code>"mediapipe"</code> (built-in), <code>"dlib"</code> (optional install; CC0 5-point model unless <code>predictor_path</code> names another), or a callable <code>f(rgb, try_rotations)</code> returning <code>None</code>, a (68, 2) array, or <code>(array, score)</code>. Verification also runs the built-in detector whatever this is.</td></tr>
+<tr><td><code>fallback_detector</code>, <code>fallback_brain_guard</code></td><td class="d">Same values as <code>detector</code>: run it when <code>detector</code> finds no validated face (the volume is still untouched), e.g. <code>"dlib"</code>. That run uses the brain guard unless <code>fallback_brain_guard=False</code>. The report's <code>detector</code> and <code>fallback_used</code> say which succeeded.</td></tr>
+<tr><td><code>verify</code>, <code>max_verify_rounds</code>, <code>verify_pitches</code>, <code>verify_effort</code>, <code>escalate_to_block</code></td><td class="d">Re-render and re-detect after anonymizing, from every detected yaw at each pitch in <code>verify_pitches</code> and from a grid around the face set by <code>verify_effort</code> (<code>"fast"</code>: none, <code>"balanced"</code>: 3×3, <code>"thorough"</code>: 5×5; speed vs. how many angles are attacked); blur modes escalate σ×1.6 per round, then an opaque fill unless disabled.</td></tr>
+<tr><td><code>brain_guard</code>, <code>brain_guard_mm</code></td><td class="d">Opt-in: never modify the brain (extracted from the input) or anything within <code>brain_guard_mm</code> of it. Costs ~3 s and ~3 GB per volume.</td></tr>
+<tr><td><code>brain_check</code></td><td class="d">Also report brain voxels modified and the clearance (<code>report["brain"]</code>).</td></tr>
+<tr><td><code>partial_face</code></td><td class="d">Opt-in: also handle faces cut by the field of view (an axial slab ending at the nose), which are refused otherwise.</td></tr>
+<tr><td><code>auto_threshold</code></td><td class="d">Opt-in: noisy, dim scans (e.g. infants) are retried at higher surface thresholds when no face is found.</td></tr>
+<tr><td><code>threshold_frac</code>, <code>threshold</code></td><td class="d">Skin surface threshold: fraction of the 99th percentile, or an absolute value. CT is detected automatically (−400 HU).</td></tr>
+<tr><td><code>return_mask</code></td><td class="d">Add the uint8 <code>mask</code> to the report.</td></tr>
+<tr><td><code>**deface_kwargs</code></td><td class="d"><code>ear_mode</code> and geometry overrides from the <a href="#params">parameter table</a>, e.g. <code>skin_depth_mm=3.5</code>, or the opt-ins <code>level_face=True</code> and <code>spare_air=True</code>. Unknown names raise <code>ValueError</code>.</td></tr>
+</table>
+<h4>Raises</h4><p><code>RuntimeError</code> when no validated face is found; the volume is then untouched.</p>
+</div></div>
+
+<div class="api" id="py-anonymization_mask"><code class="sig">radveil.<span class="name">anonymization_mask</span>(vol, mode="blur", region="face", mask_path=None,
+    yaws=(-20.0, 0.0, 20.0), pitch=0.0, size=512, detector="mediapipe",
+    predictor_path=None, brain_check=False, brain_guard=False,
+    brain_guard_mm=3.0, threshold_frac=0.14, threshold=None,
+    detector_upsample=1, **deface_kwargs) -&gt; dict</code><div class="body">
+<span class="kind">escape hatch</span>
+<p>The region <code>deface_volume</code> would anonymize, as <code>report["mask"]</code> (uint8, the volume's grid,
+1 = would be rewritten), <strong>without modifying the volume and without verification</strong>. <code>vol</code> is
+a <code>Volume</code> or a path; <code>mask_path</code> saves the mask as NIfTI with the volume's affine. See the
+<a href="#g-region">guide</a>.</p>
+</div></div>
+
+<div class="api" id="py-deface_batch"><code class="sig">radveil.<span class="name">deface_batch</span>(inputs, output_dir=None, outputs=None, mode="blur",
+                     workers=None, executor="threads", **kwargs) -&gt; list[dict]</code><div class="body">
+<span class="kind">function</span>
+<p>Anonymize many files concurrently. <code>inputs</code> is a list of paths or a glob pattern; outputs are
+<code>outputs</code> or <code>output_dir/&lt;name&gt;_defaced.nii.gz</code>. Returns one report per input in order; a
+refused or failed input gets <code>{"input", "output", "error"}</code> instead of raising. <code>**kwargs</code> go to
+<a href="#py-deface_auto"><code>deface_auto</code></a>. <code>workers</code> defaults to
+<code>min(cpu_count, 32, len(inputs))</code>. <code>executor="threads"</code> (default) runs them in this process (the
+Rust core releases the GIL; no <code>__main__</code> guard needed); <code>executor="processes"</code> uses spawned worker
+processes, so call it under <code>if __name__ == "__main__":</code>. Each concurrent volume needs roughly 4–5× its
+voxel data in memory; with <code>brain_guard</code> or <code>brain_check</code> add ~3 GB per worker.</p>
+</div></div>
+
+<div class="api" id="py-deskull"><code class="sig">radveil.<span class="name">deskull</span>(input_path, output_path=None, mask_path=None, gzip_level=1,
+                **kwargs) -&gt; dict</code><div class="body">
+<span class="kind">function</span>
+<p>Brain extraction (skull stripping). Writes the stripped volume and/or the uint8 brain mask. Keyword arguments go to
+<a href="#py-Volume"><code>Volume.deskull</code></a>: <code>method</code> (<code>"synthstrip"</code> default,
+<code>"classical"</code>), <code>modality</code> (<code>"auto"</code>, <code>"mri"</code>, <code>"ct"</code>),
+<code>fill</code>, <code>low_memory</code>; classical only: <code>frac</code>, <code>robust</code>, <code>face</code>,
+<code>detector</code>. Returns <code>method</code>, <code>brain_volume_ml</code>, <code>brain_voxels</code>,
+<code>centroid_world</code>, <code>fill</code>, <code>passes</code>, <code>face_prior</code>.</p>
+</div></div>
+
+<div class="api" id="py-detect_landmarks"><code class="sig">radveil.<span class="name">detect_landmarks</span>(rgb, predictor_path=None, upsample=1, try_rotations=False,
+                         detector="mediapipe") -&gt; ndarray | None</code><div class="body">
+<span class="kind">function</span>
+<p>Detect a face on an RGB image (for example <code>view["rgb"]</code> from <code>Volume.render</code>) and return a
+(68, 2) array of pixel coordinates in the standard 68-point (iBUG) order, or <code>None</code>. <code>try_rotations</code>
+also searches the image rotated by 90/180/270°; coordinates stay in the original frame. With
+<code>detector="dlib"</code> and the default 5-point model, the 68 slots are filled from eyes and nose base, the
+mouth is inferred and the jaw slots are left out.</p>
+</div></div>
+
+<div class="api" id="py-lift_landmarks"><code class="sig">radveil.<span class="name">lift_landmarks</span>(views, landmarks_2d) -&gt; list</code><div class="body">
+<span class="kind">function</span>
+<p>Lift per-view 2D landmarks to 3D through each view's position map and combine them (coordinate-wise median). Returns
+68 items, each <code>(x, y, z)</code> in RAS+ mm or <code>None</code>, ready for <code>Volume.deface</code>.</p>
+</div></div>
+
+<div class="api" id="py-fetch_predictor"><code class="sig">radveil.<span class="name">fetch_predictor</span>(dest="shape_predictor_5_face_landmarks.dat") -&gt; str</code><div class="body">
+<span class="kind">function</span>
+<p>Only for the dlib detector: download dlib's CC0-licensed 5-point landmark model (~9 MB) over HTTPS and verify
+pinned SHA-256 checksums. An existing <code>dest</code> is accepted only if its checksum matches. The dlib detector
+uses this file (or <code>predictor_path</code> / <code>RADVEIL_SHAPE_PREDICTOR</code>); a 68-point model is used only
+when passed explicitly, and warns that its training data excludes commercial use.</p>
+</div></div>
+
+<div class="api" id="py-Volume"><code class="sig">class radveil.<span class="name">Volume</span>(path)</code><div class="body">
+<span class="kind">class</span>
+<p>A loaded volume. <code>Volume(path)</code> reads <code>.nii</code>/<code>.nii.gz</code>;
+<code>Volume.from_array(data, affine)</code> wraps a float32 (nx, ny, nz) array and a 4×4 voxel→RAS+ affine;
+<code>Volume.from_bytes(data)</code> parses <code>.nii</code>/<code>.nii.gz</code> content (an upload, an object-store
+blob) with no temporary file.</p>
+<table>
+<tr><th>Member</th><th>Description</th></tr>
+<tr><td><code>shape</code>, <code>spacing</code>, <code>orientation</code>, <code>affine</code></td><td class="d">Properties: voxel dimensions, mm per voxel, axis codes such as <code>"LPS"</code>, the 4×4 affine.</td></tr>
+<tr><td><code>data()</code></td><td class="d">A float32 copy of the (scaled) voxel data.</td></tr>
+<tr><td><code>percentile(pct)</code></td><td class="d">Approximate intensity percentile.</td></tr>
+<tr><td><code>render(yaw_deg=0.0, pitch_deg=0.0, size=512, threshold_frac=0.14, threshold=None, step_mm=0.0)</code></td><td class="d">One surface view: <code>rgb</code> (h, w, 3) uint8, <code>pos</code> (h, w, 3) world positions (NaN = miss), <code>hit</code>, <code>threshold</code>, <code>pixel_mm</code>.</td></tr>
+<tr><td><code>deface(points, mode="blur", region="face", ear_mode=None, …, return_mask=False)</code></td><td class="d">Anonymize from 68 world-space landmarks (no detection, no verification). Takes every <a href="#params">geometry parameter</a>.</td></tr>
+<tr><td><code>deface_auto(detector=None, deface=None, yaws=[-20, 0, 20], pitch=0.0, size=512, threshold_frac=0.14, threshold=None, verify=True, max_verify_rounds=3, escalate_to_block=True, return_mask=False, brain_check=False, verify_pitches=[0, -15], brain_guard=False, brain_guard_mm=3.0)</code></td><td class="d">The low-level pipeline; <code>deface</code> is a dict of <code>deface()</code> keywords. Prefer <code>radveil.deface_volume</code>.</td></tr>
+<tr><td><code>anonymization_mask(detector=None, deface=None, …, brain_check=False, brain_guard=False, brain_guard_mm=3.0)</code></td><td class="d">The low-level escape hatch; prefer <code>radveil.anonymization_mask</code>.</td></tr>
+<tr><td><code>deskull(method="synthstrip", modality="auto", frac=0.5, fill=None, robust=True, face=False, detector=None, strip=True, low_memory=False)</code></td><td class="d">Brain extraction; returns the report plus <code>mask</code>. With <code>strip</code> the volume is modified in place.</td></tr>
+<tr><td><code>save(path, gzip_level=1)</code></td><td class="d">Write with the original header, datatype and scaling. Voxels outside the mask are bit-exact.</td></tr>
+<tr><td><code>to_bytes(gzip_level=1)</code></td><td class="d">The same NIfTI file as <code>bytes</code>; <code>gzip_level=None</code> gives plain <code>.nii</code>.</td></tr>
+</table>
+</div></div>
+
+<h3 id="py-report">Report dictionary<a class="anchor" href="#py-report">#</a></h3>
+<p>The same keys come back from every pipeline call (Rust: <code>AutoReport</code> / <code>DefaceReport</code>).</p>
+<div class="tablewrap"><table>
+<tr><th>Key</th><th>Meaning</th></tr>
+<tr><td><code>voxels_changed</code> · <code>voxels_total</code></td><td class="d">Voxels rewritten (or, for <code>anonymization_mask</code>, that would be) and in the volume.</td></tr>
+<tr><td><code>mode</code> · <code>ear_mode</code> · <code>region</code></td><td class="d">As requested; <code>ear_mode</code> is the effective ear mode (= <code>mode</code> unless set).</td></tr>
+<tr><td><code>views_detected</code> · <code>views</code> · <code>orientation</code> · <code>orientation_sweep</code></td><td class="d">Where the face was found: validated views (yaw, pitch, score, landmarks), stored orientation, whether the orientation sweep was needed.</td></tr>
+<tr><td><code>landmarks_3d</code></td><td class="d">68 lifted landmarks, RAS+ mm (reuse them on co-registered series).</td></tr>
+<tr><td><code>verify_rounds</code> · <code>residual_detections</code> · <code>escalated_to_block</code> · <code>final_blur_sigma_mm</code></td><td class="d">Verification outcome; absent when verification did not run.</td></tr>
+<tr><td><code>rois</code></td><td class="d">Per region: <code>label</code>, hull bounds <code>u_mm</code>/<code>v_mm</code>/<code>w_mm</code> in the face frame, <code>voxels</code>; ears add <code>detected</code> and <code>protrusion_mm</code>.</td></tr>
+<tr><td><code>eye_dist_mm</code> · <code>eye_bias_mm</code> · <code>nose_tip</code></td><td class="d">Face geometry the region was scaled from.</td></tr>
+<tr><td><code>blur_sigma_mm</code> · <code>skin_depth_mm</code> · <code>depth_behind_mm</code></td><td class="d">Resolved (auto-scaled) values.</td></tr>
+<tr><td><code>face_seen_through_air</code></td><td class="d">Whether the face surface was seen through air inside the scan.</td></tr>
+<tr><td><code>brain</code></td><td class="d">With <code>brain_check</code>: <code>voxels_modified</code> (0 = untouched), <code>brain_volume_ml</code>, <code>margin_mm</code>.</td></tr>
+<tr><td><code>protected_voxels_spared</code></td><td class="d">With the brain guard: region voxels left untouched because they are within the guard margin of the brain.</td></tr>
+<tr><td><code>air_voxels_spared</code></td><td class="d">With <code>spare_air</code>: first-round region voxels left as they were because they were air and stayed air, or lay outside the shell around the head.</td></tr>
+<tr><td><code>mask</code></td><td class="d">uint8 array, when requested (always for <code>anonymization_mask</code>).</td></tr>
+<tr><td><code>detector</code> · <code>fallback_used</code></td><td class="d"><code>"mediapipe"</code>, <code>"dlib"</code> or <code>"custom"</code>: the detector that found the face; whether it was <code>fallback_detector</code> (<code>deface_volume</code>/<code>deface_auto</code>).</td></tr>
+<tr><td><code>landmark_model_points</code> · <code>mouth_landmark_inferred</code></td><td class="d">dlib only: 5 or 68, and whether the mouth was inferred (5-point model).</td></tr>
+</table></div>
+</section>

@@ -1,0 +1,1422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RadVeil documentation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="RadVeil documentation: Python, Rust, C/C++ and CLI reference with tested examples for face and ear anonymization of head MRI and CT.">
+<meta property="og:title" content="RadVeil documentation">
+<meta property="og:type" content="website">
+<meta name="author" content="Piotr Gródek">
+<meta name="color-scheme" content="light dark">
+<style>
+/* Self-hosted web fonts (SIL OFL 1.1) -- licenses and sources in fonts/README.md */
+@font-face{font-family:Archivo; font-style:normal; font-display:swap; font-weight:100 900; font-stretch:62% 125%;
+  src:url(fonts/archivo-latin-wdth-normal.woff2) format("woff2-variations"), url(fonts/archivo-latin-wdth-normal.woff2) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Source Serif 4"; font-style:normal; font-display:swap; font-weight:200 900;
+  src:url(fonts/SourceSerif4Variable-Roman.ttf.woff2) format("woff2-variations"), url(fonts/SourceSerif4Variable-Roman.ttf.woff2) format("woff2")}
+@font-face{font-family:"Source Serif 4"; font-style:italic; font-display:swap; font-weight:200 900;
+  src:url(fonts/SourceSerif4Variable-Italic.ttf.woff2) format("woff2-variations"), url(fonts/SourceSerif4Variable-Italic.ttf.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-display:swap; font-weight:400; src:url(fonts/IBMPlexMono-Regular.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-display:swap; font-weight:500; src:url(fonts/IBMPlexMono-Medium.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-display:swap; font-weight:600; src:url(fonts/IBMPlexMono-SemiBold.woff2) format("woff2")}
+</style>
+<style>
+/* Same tokens as index.html: teal is the brand, amber the anonymization mask in the figures. */
+:root{
+  --ground:#f5f4ef; --surface:#fffefb; --surface2:#ecebe4; --line:#dcdad1;
+  --ink:#15191d; --muted:#545c66; --faint:#868d96;
+  --accent:#0b7a6f; --accent-dim:#5aa79d; --accent-wash:rgba(11,122,111,.08); --accent-ink:#ffffff;
+  --code-bg:#12171c; --code-ink:#dbe3ea;
+  --t-kw:#8fe0c9; --t-str:#f0c27a; --t-com:#6f7d8b; --t-num:#e09a7a; --t-fn:#9cc7f2; --t-ty:#c8a6f0; --t-mac:#f08aa8; --t-flag:#9cc7f2; --t-var:#e09a7a;
+  --warn:#b4492d; --ok:#2f7a45;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0c0f12; --surface:#13181d; --surface2:#1a2027; --line:#242d36;
+    --ink:#e9eef2; --muted:#9aa6b2; --faint:#66727e;
+    --accent:#4fd1bd; --accent-dim:#2f8f81; --accent-wash:rgba(79,209,189,.09); --accent-ink:#06201c;
+    --code-bg:#0e1317;
+    --warn:#e07a5f; --ok:#7fbf8f;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0c0f12; --surface:#13181d; --surface2:#1a2027; --line:#242d36;
+  --ink:#e9eef2; --muted:#9aa6b2; --faint:#66727e;
+  --accent:#4fd1bd; --accent-dim:#2f8f81; --accent-wash:rgba(79,209,189,.09); --accent-ink:#06201c;
+  --code-bg:#0e1317;
+  --warn:#e07a5f; --ok:#7fbf8f;
+}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth; scroll-padding-top:76px}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{background:var(--ground); color:var(--ink); font-family:"Source Serif 4",Georgia,serif; font-size:16.5px; line-height:1.68}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+h1,h2,h3,h4{font-family:Archivo,system-ui,sans-serif; line-height:1.18; text-wrap:balance}
+code,pre,kbd,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+
+/* header */
+header.top{position:sticky; top:0; z-index:20; background:color-mix(in srgb,var(--ground) 88%,transparent);
+  backdrop-filter:saturate(1.4) blur(10px); -webkit-backdrop-filter:saturate(1.4) blur(10px); border-bottom:1px solid var(--line)}
+.bar{display:flex; align-items:center; gap:22px; height:58px; padding:0 24px; max-width:1360px; margin:0 auto}
+.brand{display:inline-flex; align-items:center; gap:10px; font-family:Archivo,sans-serif; font-stretch:120%; font-weight:800; font-size:1.06rem; letter-spacing:.01em; color:var(--ink); white-space:nowrap}
+.brand:hover{text-decoration:none}
+.brand small{font-stretch:100%; font-weight:500; font-size:.78rem; color:var(--muted); letter-spacing:0; margin-left:10px}
+.bar nav{margin-left:auto; display:flex; gap:18px; font-family:Archivo,sans-serif; font-size:.86rem}
+.bar nav a{color:var(--muted)} .bar nav a:hover{color:var(--ink); text-decoration:none}
+.iconbtn{display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer}
+.iconbtn .sun{display:none}
+:root[data-theme="dark"] .iconbtn .sun{display:block} :root[data-theme="dark"] .iconbtn .moon{display:none}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .iconbtn .sun{display:block} :root:not([data-theme="light"]) .iconbtn .moon{display:none}}
+.menu-btn{display:none; margin-left:auto; background:none; border:1px solid var(--line); color:var(--ink); border-radius:6px; padding:5px 10px; font:500 .82rem Archivo,sans-serif; cursor:pointer}
+
+/* layout */
+.layout{display:grid; grid-template-columns:268px minmax(0,1fr); max-width:1360px; margin:0 auto}
+aside.side{position:sticky; top:58px; height:calc(100vh - 58px); overflow-y:auto; padding:22px 16px 40px 24px; border-right:1px solid var(--line);
+  font-family:Archivo,sans-serif; font-size:.86rem; scrollbar-width:thin}
+.search{position:relative; margin-bottom:18px}
+.search input{width:100%; background:var(--surface); border:1px solid var(--line); color:var(--ink); border-radius:7px; padding:8px 34px 8px 11px; font:inherit}
+.search input::placeholder{color:var(--faint)}
+.search kbd{position:absolute; right:8px; top:7px; font-size:.72rem; color:var(--faint); border:1px solid var(--line); border-radius:4px; padding:0 5px}
+.search input:not(:placeholder-shown) + kbd{display:none}
+.toc h4{font-size:.68rem; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); font-weight:650; font-stretch:115%; margin:18px 0 6px}
+.toc a{display:block; color:var(--muted); padding:3px 8px; border-radius:5px; border-left:2px solid transparent; margin-left:-10px}
+.toc a:hover{color:var(--ink); text-decoration:none; background:var(--surface)}
+.toc a.active{color:var(--ink); border-left-color:var(--accent); background:var(--accent-wash)}
+.toc a.sub{padding-left:20px; font-size:.82rem}
+.toc a code{font-size:.8rem; background:none; border:0; padding:0}
+.toc .none{display:none; color:var(--faint); padding:6px 0}
+.toc.filtering a::after{content:attr(data-g); float:right; color:var(--faint); font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; padding-top:2px}
+main{padding:40px 56px 120px; min-width:0}
+.content{max-width:820px}
+
+/* type */
+.eyebrow{font-family:Archivo,sans-serif; font-stretch:118%; font-weight:640; font-size:.7rem; letter-spacing:.17em; text-transform:uppercase; color:var(--accent)}
+h1.page{font-size:clamp(2rem,4vw,2.7rem); font-weight:780; font-stretch:104%; margin:10px 0 14px}
+.lede{color:var(--muted); font-size:1.08rem; max-width:40em}
+section.part{padding-top:26px; margin-top:44px; border-top:1px solid var(--line)}
+section.part > h2{font-size:1.65rem; font-weight:750; margin:8px 0 10px}
+h3{font-size:1.18rem; font-weight:700; margin:34px 0 8px}
+h3 .anchor,h4 .anchor{color:var(--faint); margin-left:6px; opacity:0; font-weight:400}
+h3:hover .anchor,h4:hover .anchor{opacity:1}
+p{margin:10px 0}
+ul,ol{margin:10px 0 10px 1.3em} li{margin:4px 0}
+:not(pre) > code{font-size:.84em; background:var(--surface2); border:1px solid var(--line); border-radius:4px; padding:.05em .35em; white-space:nowrap}
+strong{font-weight:650}
+
+/* cards */
+.grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:18px 0}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px 16px}
+.figs{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0}
+.figs.one{grid-template-columns:minmax(0,560px)}
+.figs figure{margin:0; background:#000; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+.figs img{width:100%; display:block}
+.figs figcaption{padding:7px 10px; font-size:.8rem; color:var(--muted); background:var(--surface)}
+.figs figcaption code{color:var(--accent)}
+@media (max-width:700px){.figs{grid-template-columns:1fr 1fr}}
+.small{font-size:.85rem; color:var(--muted)}
+.card h4{font-size:.92rem; margin-bottom:4px}
+.card p{font-size:.88rem; color:var(--muted); margin:0; font-family:Archivo,sans-serif; line-height:1.5}
+.card code{white-space:normal}
+a.card{display:block; color:inherit} a.card:hover{border-color:var(--accent-dim); text-decoration:none}
+
+/* callouts */
+.note{border:1px solid var(--line); border-left:3px solid var(--accent); background:var(--accent-wash); border-radius:8px; padding:12px 16px; margin:18px 0; font-size:.95rem}
+.note.warn{border-left-color:var(--warn); background:color-mix(in srgb,var(--warn) 8%,transparent)}
+.note b.h{font-family:Archivo,sans-serif; font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; display:block; margin-bottom:2px; color:var(--accent)}
+.note.warn b.h{color:var(--warn)}
+
+/* code */
+.code{position:relative; margin:14px 0; border:1px solid var(--line); border-radius:9px; background:var(--code-bg); overflow:hidden}
+.code-title{font:500 .74rem "IBM Plex Mono",monospace; color:#8d99a6; padding:7px 14px; border-bottom:1px solid #1f2830; background:#0c1115}
+.code pre{overflow-x:auto; padding:14px 16px; font-size:.83rem; line-height:1.6; color:var(--code-ink); tab-size:4}
+.copy{position:absolute; right:8px; top:6px; background:#1a222b; color:#b7c2cc; border:1px solid #2a3440; border-radius:5px; font:500 .72rem Archivo,sans-serif; padding:3px 9px; cursor:pointer; opacity:0; transition:opacity .15s}
+.code:hover .copy,.copy:focus-visible{opacity:1}
+.copy.done{color:#8fe0c9}
+@media (hover:none){.copy{opacity:1}}
+.t-kw{color:var(--t-kw)} .t-str{color:var(--t-str)} .t-com{color:var(--t-com); font-style:italic} .t-num{color:var(--t-num)}
+.t-fn{color:var(--t-fn)} .t-ty{color:var(--t-ty)} .t-mac{color:var(--t-mac)} .t-dec{color:var(--t-mac)} .t-pp{color:var(--t-mac)} .t-flag{color:var(--t-flag)} .t-var{color:var(--t-var)}
+
+/* tabs */
+.tabs{margin:16px 0}
+.tablist{display:flex; gap:2px; border-bottom:1px solid var(--line); flex-wrap:wrap}
+.tablist button{background:none; border:0; border-bottom:2px solid transparent; color:var(--muted); font:600 .84rem Archivo,sans-serif; padding:7px 13px; cursor:pointer; margin-bottom:-1px}
+.tablist button:hover{color:var(--ink)}
+.tablist button[aria-selected="true"]{color:var(--ink); border-bottom-color:var(--accent)}
+.tabs .pane{display:none} .tabs .pane.on{display:block}
+.tabs .code{margin-top:10px}
+.tab-note{color:var(--muted); font-size:.93rem; padding:10px 2px}
+.langswitch{display:inline-flex; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:3px; gap:2px; margin:14px 0 4px; flex-wrap:wrap}
+.langswitch button{background:none; border:0; color:var(--muted); font:600 .82rem Archivo,sans-serif; padding:5px 12px; border-radius:6px; cursor:pointer}
+.langswitch button[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink)}
+.langswitch-label{font:500 .8rem Archivo,sans-serif; color:var(--faint); margin-right:8px}
+
+/* api entries */
+.api{position:relative; border:1px solid var(--line); border-radius:11px; background:var(--surface); margin:20px 0; overflow:hidden}
+.api > .sig{display:block; background:var(--code-bg); border-bottom:1px solid var(--line); padding:13px 118px 13px 16px; font:500 .84rem/1.6 "IBM Plex Mono",monospace; color:var(--code-ink); overflow-x:auto; white-space:pre}
+.api > .sig .name{color:var(--t-fn); font-weight:600}
+.api > .body{padding:4px 18px 14px; overflow-x:auto}
+.api h4{font-size:.74rem; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); margin:14px 0 4px; font-stretch:112%}
+.api .kind{position:absolute; right:12px; top:11px; font:600 .64rem Archivo,sans-serif; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); border:1px solid var(--accent-dim); border-radius:20px; padding:1px 8px; background:var(--code-bg)}
+table{border-collapse:collapse; width:100%; margin:10px 0; font-size:.88rem}
+th,td{text-align:left; vertical-align:top; padding:7px 10px; border-bottom:1px solid var(--line)}
+th{font:650 .72rem Archivo,sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+td code{white-space:nowrap}
+td.d{color:var(--muted)}
+.tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:9px; margin:14px 0}
+.tablewrap table{margin:0}
+.tablewrap tr:last-child td{border-bottom:0}
+
+/* pipeline strip */
+.steps{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin:18px 0}
+.steps div{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:10px 12px; font-family:Archivo,sans-serif; font-size:.82rem; color:var(--muted); line-height:1.45}
+.steps b{display:block; color:var(--ink); font-size:.9rem; margin-bottom:2px}
+.steps i{font-style:normal; color:var(--accent); font:600 .7rem "IBM Plex Mono",monospace}
+
+footer{border-top:1px solid var(--line); margin-top:70px; padding-top:22px; color:var(--faint); font:400 .8rem/1.6 Archivo,sans-serif}
+footer p{margin:4px 0}
+
+@media (max-width:980px){
+  .layout{grid-template-columns:1fr}
+  aside.side{position:fixed; top:58px; left:0; width:min(320px,86vw); z-index:15; background:var(--ground); transform:translateX(-102%); transition:transform .2s; box-shadow:0 10px 40px rgba(0,0,0,.4)}
+  aside.side.open{transform:none}
+  .menu-btn{display:inline-block; margin-left:8px}
+  #theme{margin-left:auto}
+  .bar nav{display:none}
+  main{padding:26px 16px 90px}
+  .steps{grid-template-columns:1fr 1fr}
+}
+@media (max-width:620px){.grid{grid-template-columns:1fr} .api > .sig{padding-right:16px; padding-top:34px} td code{white-space:normal; overflow-wrap:anywhere} th,td{padding:6px 7px}}
+</style>
+<script>
+try { var t = localStorage.getItem("radveil-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <a class="brand" href="index.html"><svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--accent)"/><path d="M9 22V10h7.5a4 4 0 0 1 0 8H9m7 0 6 4" fill="none" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>RadVeil<small>docs · v0.1</small></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="#guides">Guides</a>
+      <a href="#ref-python">Python</a>
+      <a href="#ref-rust">Rust</a>
+      <a href="#ref-c">C / C++</a>
+      <a href="#ref-cli">CLI</a>
+      <a href="demo/">Demo</a>
+      <a href="https://github.com/rAum/radveil">Source</a>
+    </nav>
+    <button class="iconbtn" id="theme" type="button" aria-label="Toggle light or dark theme"><svg class="moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><svg class="sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="side">Contents</button>
+  </div>
+</header>
+
+<div class="layout">
+<aside class="side" id="side">
+  <div class="search"><input id="q" type="search" placeholder="Filter functions, types…" aria-label="Filter the contents" autocomplete="off"><kbd>/</kbd></div>
+  <nav class="toc" id="toc">
+    <h4>Start</h4>
+    <a href="#install">Install</a>
+    <a href="#quickstart">Quick start</a>
+    <a href="#concepts">How it works</a>
+    <a class="sub" href="#coordinates">Volumes &amp; coordinates</a>
+    <a class="sub" href="#modes">Modes &amp; regions</a>
+    <a class="sub" href="#safety">Safety model</a>
+    <a class="sub" href="#auto">Auto parameters</a>
+    <h4>Guides</h4>
+    <a href="#g-file">Anonymize a file</a>
+    <a href="#g-memory">Arrays &amp; DICOM</a>
+    <a href="#g-region">Region only (escape hatch)</a>
+    <a href="#g-brain">Brain check &amp; extraction</a>
+    <a href="#g-detector">Your own detector</a>
+    <a href="#g-batch">Cohorts</a>
+    <a href="#g-refusal">Handling refusals</a>
+    <a href="#g-steps">Step by step</a>
+    <h4>Python</h4>
+    <a href="#py-deface_auto"><code>deface_auto</code></a>
+    <a href="#py-deface_volume"><code>deface_volume</code></a>
+    <a href="#py-anonymization_mask"><code>anonymization_mask</code></a>
+    <a href="#py-deface_batch"><code>deface_batch</code></a>
+    <a href="#py-deskull"><code>deskull</code></a>
+    <a href="#py-detect_landmarks"><code>detect_landmarks</code></a>
+    <a href="#py-lift_landmarks"><code>lift_landmarks</code></a>
+    <a href="#py-fetch_predictor"><code>fetch_predictor</code></a>
+    <a href="#py-Volume"><code>Volume</code></a>
+    <a href="#py-report">Report dictionary</a>
+    <h4>Rust</h4>
+    <a href="#rs-crate">Crate &amp; features</a>
+    <a href="#rs-Volume"><code>Volume</code></a>
+    <a href="#rs-deface_auto"><code>deface_auto</code></a>
+    <a href="#rs-anonymization_mask"><code>anonymization_mask</code></a>
+    <a href="#rs-AutoParams"><code>AutoParams</code> · <code>AutoReport</code></a>
+    <a href="#rs-plan"><code>plan</code> · <code>apply</code> · <code>plan_mask</code></a>
+    <a href="#rs-deface"><code>deface</code> · <code>DefaceParams</code></a>
+    <a href="#rs-FaceDetector"><code>FaceDetector</code></a>
+    <a href="#rs-deskull"><code>brain_mask</code> · <code>deskull</code></a>
+    <a href="#rs-render"><code>render_view</code> · <code>locate_face</code></a>
+    <h4>C / C++</h4>
+    <a href="#c-conventions">Conventions &amp; linking</a>
+    <a href="#c-volume">Volume lifecycle</a>
+    <a href="#c-deface_auto"><code>radveil_deface_auto</code></a>
+    <a href="#c-anonymization_mask"><code>radveil_anonymization_mask</code></a>
+    <a href="#c-deface"><code>radveil_deface</code> · <code>_region</code></a>
+    <a href="#c-params">Parameter structs</a>
+    <a href="#c-reports">Report structs</a>
+    <a href="#c-render"><code>radveil_render</code></a>
+    <a href="#c-deskull"><code>radveil_deskull</code></a>
+    <h4>CLI</h4>
+    <a href="#ref-cli"><code>radveil</code> commands</a>
+    <a href="#cli-exit">Exit status</a>
+    <h4>All languages</h4>
+    <a href="#params">Parameter table</a>
+    <a href="#errors">Errors &amp; refusals</a>
+    <div class="none" id="none">No matches.</div>
+  </nav>
+</aside>
+
+<main>
+<div class="content">
+
+<div class="eyebrow">Documentation · v0.1.0</div>
+<h1 class="page">RadVeil documentation</h1>
+<p class="lede">Face and ear anonymization for head MRI and CT, from Python, Rust, C/C++ or the command line.
+One Rust engine sits behind every interface, so the behaviour, the parameters and the reports are the same
+wherever you call it from. Every example on this page is run against real data before it is published.</p>
+
+<div class="note warn"><b class="h">Early release</b>
+RadVeil 0.1 has been validated on a small set of scans only: the public SynthStrip evaluation set, 3D Slicer
+sample data and IXI. Review outputs before you share data.</div>
+
+<span class="langswitch-label">Examples in</span><div class="langswitch" role="group" aria-label="Example language">
+  <button type="button" data-lang="py" aria-pressed="true">Python</button>
+  <button type="button" data-lang="rs" aria-pressed="false">Rust</button>
+  <button type="button" data-lang="c" aria-pressed="false">C / C++</button>
+  <button type="button" data-lang="sh" aria-pressed="false">CLI</button>
+</div>
+
+<!-- ============================================================ START -->
+<section class="part" id="install">
+<div class="eyebrow">Start</div>
+<h2>Install</h2>
+<div class="grid">
+  <div class="card"><h4>Python ≥ 3.9</h4><p><code>pip install radveil</code><br>Wheels for Linux, macOS and Windows. No model download and no dlib: the face detector and brain-extraction weights are built in.</p></div>
+  <div class="card"><h4>Rust ≥ 1.98</h4><p><code>cargo add radveil-core</code><br>Pure Rust; models are embedded. Features <code>detector</code>, <code>synthstrip</code>, <code>rvbrain</code> are on by default.</p></div>
+  <div class="card"><h4>C / C++</h4><p>Download <code>radveil-v0.1.0-&lt;target&gt;</code> from GitHub Releases: <code>include/radveil.h</code>, shared and static <code>lib/</code>, and <code>LINKING.txt</code>.</p></div>
+  <div class="card"><h4>Command line</h4><p><code>cargo install radveil-cli</code> or the <code>bin/radveil</code> binary in the release archive. No Python needed.</p></div>
+</div>
+<p>dlib is <strong>not</strong> a dependency. It stays available in Python as an alternative or fallback detector
+(<code>pip install "radveil[dlib]"</code>), with dlib's CC0 5-point landmark model by default
+(<a href="#py-fetch_predictor"><code>fetch_predictor()</code></a>). dlib's 68-point models are never selected
+implicitly: their training data excludes commercial use (see <a href="https://github.com/rAum/radveil/blob/main/docs/legal.md">legal notes</a>).</p>
+</section>
+
+<section class="part" id="quickstart">
+<div class="eyebrow">Start</div>
+<h2>Quick start</h2>
+<p>Load a NIfTI volume, find the face, anonymize it, verify that the face detector no longer finds it, and save.
+Every voxel outside the anonymized region is written back bit-exact, with the original datatype, scaling and header.</p>
+<div class="tabs"><div class="tablist" role="tablist"><button type="button" role="tab" data-lang="py">Python</button><button type="button" role="tab" data-lang="rs">Rust</button><button type="button" role="tab" data-lang="c">C / C++</button><button type="button" role="tab" data-lang="sh">CLI</button></div><div class="pane" role="tabpanel" data-lang="py"><div class="code"><div class="code-title">quickstart.py</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="python"><code><span class="t-kw">import</span> radveil
+
+report = radveil.<span class="t-fn">deface_auto</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>, <span class="t-str">&quot;t1_defaced.nii.gz&quot;</span>, mode=<span class="t-str">&quot;adaptive&quot;</span>)
+<span class="t-fn">print</span>(report[<span class="t-str">&quot;voxels_changed&quot;</span>], <span class="t-str">&quot;voxels changed;&quot;</span>, report[<span class="t-str">&quot;residual_detections&quot;</span>], <span class="t-str">&quot;faces left&quot;</span>)</code></pre></div></div><div class="pane" role="tabpanel" data-lang="rs"><div class="code"><div class="code-title">quickstart.rs</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="rust"><code><span class="t-kw">use</span> radveil_core::{deface_auto, <span class="t-ty">AutoParams</span>, <span class="t-ty">DefaceMode</span>, <span class="t-ty">DefaceParams</span>, <span class="t-ty">MediaPipeDetector</span>, <span class="t-ty">Volume</span>};
+
+<span class="t-kw">fn</span> <span class="t-fn">main</span>() -&gt; <span class="t-ty">Result</span>&lt;(), <span class="t-ty">Box</span>&lt;<span class="t-kw">dyn</span> std::error::<span class="t-ty">Error</span>&gt;&gt; {
+    <span class="t-kw">let</span> <span class="t-kw">mut</span> vol = <span class="t-ty">Volume</span>::<span class="t-fn">load</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>)?;
+    <span class="t-kw">let</span> params = <span class="t-ty">AutoParams</span> {
+        deface: <span class="t-ty">DefaceParams</span> {
+            mode: <span class="t-ty">DefaceMode</span>::<span class="t-ty">Adaptive</span>,
+            ..<span class="t-ty">Default</span>::<span class="t-fn">default</span>()
+        },
+        ..<span class="t-ty">Default</span>::<span class="t-fn">default</span>()
+    };
+    <span class="t-kw">let</span> report = <span class="t-fn">deface_auto</span>(&amp;<span class="t-kw">mut</span> vol, &amp;<span class="t-kw">mut</span> <span class="t-ty">MediaPipeDetector</span>::<span class="t-fn">default</span>(), &amp;params)?;
+    <span class="t-mac">println!</span>(
+        <span class="t-str">&quot;{} voxels changed, faces left: {:?}&quot;</span>,
+        report.deface.voxels_changed, report.residual_detections
+    );
+    vol.<span class="t-fn">save</span>(<span class="t-str">&quot;t1_defaced.nii.gz&quot;</span>)?;
+    <span class="t-kw">Ok</span>(())
+}</code></pre></div></div><div class="pane" role="tabpanel" data-lang="c"><div class="code"><div class="code-title">quickstart.c</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="c"><code><span class="t-pp">#include &lt;stdio.h&gt;</span>
+<span class="t-pp">#include &quot;radveil.h&quot;</span>
+
+<span class="t-kw">int</span> <span class="t-fn">main</span>(<span class="t-kw">void</span>) {
+    <span class="t-ty">RadveilVolume</span> *vol = <span class="t-fn">radveil_volume_load</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>);
+    <span class="t-kw">if</span> (!vol) { <span class="t-fn">fprintf</span>(stderr, <span class="t-str">&quot;load: %s\n&quot;</span>, <span class="t-fn">radveil_last_error</span>()); <span class="t-kw">return</span> <span class="t-num">1</span>; }
+
+    <span class="t-ty">RadveilAutoReport</span> rep;
+    <span class="t-kw">if</span> (<span class="t-fn">radveil_deface_auto</span>(vol, <span class="t-str">&quot;adaptive&quot;</span>, <span class="t-str">&quot;face&quot;</span>, <span class="t-kw">NULL</span>, <span class="t-kw">NULL</span>,
+                            <span class="t-com">/*verify=*/</span><span class="t-num">1</span>, <span class="t-com">/*brain=*/</span>RADVEIL_BRAIN_CHECK, <span class="t-kw">NULL</span>, &amp;rep) != <span class="t-num">0</span>) {
+        <span class="t-fn">fprintf</span>(stderr, <span class="t-str">&quot;refused: %s\n&quot;</span>, <span class="t-fn">radveil_last_error</span>());  <span class="t-com">/* volume untouched */</span>
+        <span class="t-fn">radveil_volume_free</span>(vol);
+        <span class="t-kw">return</span> <span class="t-num">2</span>;
+    }
+    <span class="t-fn">printf</span>(<span class="t-str">&quot;%llu voxels changed, %d faces left, %lld brain voxels touched\n&quot;</span>,
+           (<span class="t-kw">unsigned</span> <span class="t-kw">long</span> <span class="t-kw">long</span>)rep.base.voxels_changed, rep.residual_detections,
+           (<span class="t-kw">long</span> <span class="t-kw">long</span>)rep.brain_voxels_modified);
+    <span class="t-kw">if</span> (<span class="t-fn">radveil_volume_save</span>(vol, <span class="t-str">&quot;t1_defaced.nii.gz&quot;</span>, <span class="t-num">1</span>) != <span class="t-num">0</span>)
+        <span class="t-fn">fprintf</span>(stderr, <span class="t-str">&quot;save: %s\n&quot;</span>, <span class="t-fn">radveil_last_error</span>());
+    <span class="t-fn">radveil_volume_free</span>(vol);
+    <span class="t-kw">return</span> <span class="t-num">0</span>;
+}</code></pre></div></div><div class="pane" role="tabpanel" data-lang="sh"><div class="code"><div class="code-title">quickstart.sh</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="bash"><code><span class="t-fn">radveil</span> auto t1.nii.gz t1_defaced.nii.gz <span class="t-flag">--mode</span> adaptive <span class="t-flag">--report</span> report.json</code></pre></div></div></div>
+<p>On a 1&nbsp;mm IXI T1 this changes about 1.1 million voxels (the air in front of the face, the nose and
+lips, and a few millimetres of skin). Verification then finds no face, and no brain voxel is touched.</p>
+</section>
+
+<section class="part" id="concepts">
+<div class="eyebrow">Start</div>
+<h2>How it works</h2>
+<p>RadVeil localizes the face the way an attacker would, then attacks its own output.</p>
+<div class="steps">
+  <div><i>01</i><b>Render</b>A CPU ray caster draws portrait views, with a 3D world position for every pixel.</div>
+  <div><i>02</i><b>Detect</b>A 2D face detector (built-in MediaPipe models) finds 68 landmarks per view.</div>
+  <div><i>03</i><b>Lift</b>Landmarks become 3D points; views must agree in 3D or they are rejected.</div>
+  <div><i>04</i><b>Rewrite</b>A skin-deep region in the face frame is blurred, cut or filled.</div>
+  <div><i>05</i><b>Verify</b>The result is re-rendered and re-detected; detection escalates the mode.</div>
+</div>
+
+
+<h3 id="coordinates">Volumes &amp; coordinates<a class="anchor" href="#coordinates">#</a></h3>
+<ul>
+  <li>A <strong>volume</strong> is a 3D voxel array plus a 4×4 voxel→world affine. World coordinates are NIfTI
+  <strong>RAS+ millimetres</strong>: +x right, +y anterior, +z superior.</li>
+  <li>Any storage orientation works (<code>RAS</code>, <code>LPS</code>, <code>PIR</code>, oblique). If the stored
+  orientation is wrong, a six-direction sweep finds the face anyway and the report says
+  <code>orientation_sweep: true</code>.</li>
+  <li>Arrays are indexed <code>(i, j, k)</code> in voxel order. Masks come back on the <em>same grid</em> as the input,
+  so <code>mask[i, j, k]</code> refers to <code>data[i, j, k]</code>. In C they are flat, C-order, <code>k</code> fastest.</li>
+  <li>Intensities are read with the NIfTI scaling applied; saving writes them back with the original datatype,
+  <code>scl_slope</code>/<code>scl_inter</code> and header.</li>
+</ul>
+
+<h3 id="modes">Modes &amp; regions<a class="anchor" href="#modes">#</a></h3>
+<div class="tablewrap"><table>
+<tr><th>Mode</th><th>What happens inside the region</th></tr>
+<tr><td><code>blur</code></td><td class="d">Gaussian blur (σ auto-scaled, ~10 mm). Gross morphology survives. The default.</td></tr>
+<tr><td><code>adaptive</code></td><td class="d">Gradient-weighted averaging: the stronger the facial feature, the heavier the kernel. Recommended.</td></tr>
+<tr><td><code>cut</code></td><td class="d">Background fill: ~0 on MRI, air on CT (never water-density 0 HU).</td></tr>
+<tr><td><code>block</code></td><td class="d">Opaque constant fill. Also the final escalation step of verification.</td></tr>
+</table></div>
+<div class="figs">
+  <figure><img src="img/site_blur.png" alt="blur result on the MRHead sample" loading="lazy"><figcaption><code>blur</code></figcaption></figure>
+  <figure><img src="img/site_adaptive.png" alt="adaptive result on the MRHead sample" loading="lazy"><figcaption><code>adaptive</code></figcaption></figure>
+  <figure><img src="img/site_cut-noverify.png" alt="cut result with verification off" loading="lazy"><figcaption><code>cut</code> (verification off)</figcaption></figure>
+  <figure><img src="img/site_block.png" alt="block result" loading="lazy"><figcaption><code>block</code></figcaption></figure>
+</div>
+<div class="figs">
+  <figure><img src="img/slices_input.png" alt="input: sagittal and axial slices" loading="lazy"><figcaption>input voxels</figcaption></figure>
+  <figure><img src="img/slices_adaptive.png" alt="adaptive: region outlined" loading="lazy"><figcaption><code>adaptive</code>, region outlined</figcaption></figure>
+  <figure><img src="img/slices_cut-noverify.png" alt="cut: region set to background" loading="lazy"><figcaption><code>cut</code>: set to background</figcaption></figure>
+  <figure><img src="img/slices_block.png" alt="block: constant fill" loading="lazy"><figcaption><code>block</code>: constant fill</figcaption></figure>
+</div>
+<p class="small">3D Slicer&rsquo;s public &ldquo;MRHead&rdquo; sample, <code>radveil auto</code> with default settings
+(<code>tools/make_site_images.py</code>). On this head verification escalated <code>blur</code> and
+<code>adaptive</code> twice; verified <code>cut</code> still read as a face and was escalated to a fill, so it is
+shown with verification off.</p>
+<p><strong>Regions:</strong> <code>face</code> (default), <code>ears</code> or <code>face+ears</code>. The pinna is a
+biometric identifier too. No landmark model emits ear points, so each pinna is found by measuring the head surface,
+and the report says per ear whether it was <code>detected</code> or fell back to an anthropometric window.
+Verification is skipped for <code>ears</code> alone, since the face legitimately remains. <code>ear_mode</code>
+sets a different mode for the ears in the same pass, e.g. <code>adaptive</code> face and <code>cut</code> ears
+(recommended: blur leaves 10–16% of the pinna surface in place).</p>
+<div class="figs">
+  <figure><img src="img/side_input.png" alt="side view of the input, pinna intact" loading="lazy"><figcaption>input, side view</figcaption></figure>
+  <figure><img src="img/side_ears.png" alt="side view after face+ears with ear_mode cut" loading="lazy"><figcaption><code>face+ears</code>, <code>ear_mode="cut"</code></figcaption></figure>
+  <figure><img src="img/slices_earcut_input.png" alt="axial slice through both pinnae" loading="lazy"><figcaption>axial slice through the pinnae</figcaption></figure>
+  <figure><img src="img/slices_earcut.png" alt="the same slice after the ear cut, region outlined" loading="lazy"><figcaption>after: both pinnae detected and removed</figcaption></figure>
+</div>
+
+<h3 id="safety">Safety model<a class="anchor" href="#safety">#</a></h3>
+<div class="grid">
+  <div class="card"><h4>Refuses rather than guesses</h4><p>No plausible face (non-head data, already defaced), candidates that fail 3D shape consensus, or a "face" on a field-of-view cut: nothing is modified and an error is raised.</p></div>
+  <div class="card"><h4>Skin-deep</h4><p>The region follows the measured skin: the air in front of the face, nose and lips, and <code>skin_depth_mm</code> (~4.5 mm) of skin, chosen to stay above the skull.</p></div>
+  <div class="card"><h4>Verified</h4><p>The output is re-rendered and re-detected from every detected yaw, also at 0° and −15° pitch
+(<code>verify_pitches</code>), from a grid of angles around the face (<code>verify_effort</code>: <code>fast</code>, <code>balanced</code>, <code>thorough</code>), and always by the built-in detector too. Blur escalates (σ×1.6 per round), then an opaque fill. Escalations reuse the first region, so they never cut deeper.</p></div>
+  <div class="card"><h4>Bit-exact elsewhere, brain guard on request</h4><p>Only voxels inside the exported mask change. The opt-in <code>brain_guard</code> extracts the brain and never modifies anything within 3 mm of it.</p></div>
+</div>
+<div class="figs one">
+  <figure><img src="img/brain.png" alt="mid-sagittal slice: extracted brain outlined in blue, anonymization region in amber" loading="lazy"><figcaption>Brain (built-in SynthStrip, blue) and anonymization region (amber) on MRHead: no overlap, 5.0 mm minimum clearance.</figcaption></figure>
+</div>
+<p>On the public SynthStrip evaluation set (582 scans with expert brain masks), RadVeil processed 201 and refused
+the rest. The region touched the brain mask on none of them (closest 1.3 mm), and no face was re-detected after
+<code>adaptive</code> anonymization, at 1.25 s per scan. With the
+opt-in brain guard no scan was touched (closest change 3.6 mm), for one brain extraction more: about 4 s and 3.2 GB
+per scan. Header metadata (names, IDs, dates) is <strong>not</strong> scrubbed: that stays
+with your de-identification pipeline.</p>
+
+<h3 id="auto">Auto parameters<a class="anchor" href="#auto">#</a></h3>
+<p>Every geometric parameter is optional. Left unset, it is scaled from <em>d</em>, the measured distance between the
+eyes, so adults, children and phantoms need no tuning. Set a value in millimetres to override it; the report always
+contains the resolved values. The full list, with the name in each language, is in the
+<a href="#params">parameter table</a>.</p>
+</section>
+
+<!-- ============================================================ GUIDES -->
+<section class="part" id="guides">
+<div class="eyebrow">Guides</div>
+<h2>Guides</h2>
+<p>Task-oriented recipes. Pick your language with the switch at the top; the choice is remembered on every example.</p>
+
+<h3 id="g-file">Anonymize a file<a class="anchor" href="#g-file">#</a></h3>
+<p>The file-to-file call takes every pipeline option. Here it also removes the ears (with their own mode,
+<code>ear_mode</code>), writes the mask of changed voxels, and saves before/after renders for review. The report is plain JSON-ready data.</p>
+<div class="tabs"><div class="tablist" role="tablist"><button type="button" role="tab" data-lang="py">Python</button><button type="button" role="tab" data-lang="rs">Rust</button><button type="button" role="tab" data-lang="c">C / C++</button><button type="button" role="tab" data-lang="sh">CLI</button></div><div class="pane" role="tabpanel" data-lang="py"><div class="code"><div class="code-title">file.py</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="python"><code><span class="t-kw">import</span> json
+<span class="t-kw">import</span> radveil
+
+report = radveil.<span class="t-fn">deface_auto</span>(
+    <span class="t-str">&quot;t1.nii.gz&quot;</span>, <span class="t-str">&quot;t1_defaced.nii.gz&quot;</span>,
+    mode=<span class="t-str">&quot;adaptive&quot;</span>,
+    region=<span class="t-str">&quot;face+ears&quot;</span>,           <span class="t-com"># the pinna is biometric too</span>
+    ear_mode=<span class="t-str">&quot;cut&quot;</span>,               <span class="t-com"># its own mode: blur leaves part of the pinna</span>
+    mask_path=<span class="t-str">&quot;t1_mask.nii.gz&quot;</span>,   <span class="t-com"># exactly which voxels changed (uint8 NIfTI)</span>
+    qa_dir=<span class="t-str">&quot;qa&quot;</span>,                  <span class="t-com"># before/after renders for review</span>
+)
+<span class="t-kw">for</span> roi <span class="t-kw">in</span> report[<span class="t-str">&quot;rois&quot;</span>]:
+    <span class="t-fn">print</span>(roi[<span class="t-str">&quot;label&quot;</span>], roi[<span class="t-str">&quot;voxels&quot;</span>], roi.<span class="t-fn">get</span>(<span class="t-str">&quot;detected&quot;</span>))
+json.<span class="t-fn">dump</span>(report, <span class="t-fn">open</span>(<span class="t-str">&quot;report.json&quot;</span>, <span class="t-str">&quot;w&quot;</span>), indent=<span class="t-num">2</span>)  <span class="t-com"># JSON-ready</span></code></pre></div></div><div class="pane" role="tabpanel" data-lang="rs"><p class="tab-note">The Rust pipeline is the same call as the <a href='#quickstart'>quick start</a>; set <code>DefaceParams { region: Region::FaceAndEars, ear_mode: Some(DefaceMode::Cut), .. }</code> and <code>AutoParams { return_mask: true, .. }</code>, then read <code>report.mask</code>. <code>AutoReport</code> implements <code>serde::Serialize</code>.</p></div><div class="pane" role="tabpanel" data-lang="c"><p class="tab-note">Pass <code>&quot;face+ears&quot;</code> as <code>region</code> and a <code>uint8_t</code> buffer of nx·ny·nz bytes as <code>mask_out</code> to <a href='#c-deface_auto'><code>radveil_deface_auto</code></a> (one mode for all regions; a separate ear mode needs your landmarks and <a href='#c-deface'><code>radveil_deface_regions</code></a>).</p></div><div class="pane" role="tabpanel" data-lang="sh"><div class="code"><div class="code-title">file.sh</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="bash"><code><span class="t-fn">radveil</span> auto t1.nii.gz t1_defaced.nii.gz <span class="t-flag">--mode</span> adaptive <span class="t-flag">--region</span> face+ears <span class="t-flag">--ear-mode</span> cut \
+  <span class="t-flag">--mask-out</span> t1_mask.nii.gz <span class="t-flag">--report</span> report.json</code></pre></div></div></div>
+
+<h3 id="g-memory">Arrays &amp; DICOM<a class="anchor" href="#g-memory">#</a></h3>
+<p>Nothing requires a file. Build a volume from any float32 array and its voxel→RAS+ affine: a DICOM series read with
+pydicom or SimpleITK, an imaging application&rsquo;s volume, or raw data. The volume is modified in place. For uploads and object
+stores, <code>Volume.from_bytes(data)</code> parses <code>.nii</code>/<code>.nii.gz</code> content and
+<code>vol.to_bytes()</code> encodes the result, with no temporary file.</p>
+<div class="tabs"><div class="tablist" role="tablist"><button type="button" role="tab" data-lang="py">Python</button><button type="button" role="tab" data-lang="rs">Rust</button><button type="button" role="tab" data-lang="c">C / C++</button><button type="button" role="tab" data-lang="sh">CLI</button></div><div class="pane" role="tabpanel" data-lang="py"><div class="code"><div class="code-title">memory.py</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="python"><code><span class="t-kw">import</span> nibabel <span class="t-kw">as</span> nib
+<span class="t-kw">import</span> numpy <span class="t-kw">as</span> np
+<span class="t-kw">import</span> radveil
+
+img = nib.<span class="t-fn">load</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>)  <span class="t-com"># or a DICOM series read with pydicom / SimpleITK</span>
+vol = radveil.<span class="t-ty">Volume</span>.<span class="t-fn">from_array</span>(np.<span class="t-fn">asarray</span>(img.dataobj, dtype=np.float32), img.affine)
+report = radveil.<span class="t-fn">deface_volume</span>(vol, mode=<span class="t-str">&quot;adaptive&quot;</span>)  <span class="t-com"># modifies vol in place</span>
+nib.<span class="t-fn">save</span>(nib.<span class="t-fn">Nifti1Image</span>(vol.<span class="t-fn">data</span>(), img.affine), <span class="t-str">&quot;t1_defaced.nii.gz&quot;</span>)
+<span class="t-fn">print</span>(report[<span class="t-str">&quot;views_detected&quot;</span>], <span class="t-str">&quot;views,&quot;</span>, report[<span class="t-str">&quot;verify_rounds&quot;</span>], <span class="t-str">&quot;verification rounds&quot;</span>)</code></pre></div></div><div class="pane" role="tabpanel" data-lang="rs"><p class="tab-note"><code>Volume::from_array(data: Array3&lt;f32&gt;, affine: Mat4)</code> (a row-major 4×4 <code>f64</code> array), then the same <code>deface_auto</code> call; the result is in <code>vol.data</code>.</p></div><div class="pane" role="tabpanel" data-lang="c"><p class="tab-note"><code>radveil_volume_from_array(nx, ny, nz, data, affine)</code> copies your float buffer (C order) and a row-major 4×4 affine; read the result back from your own pipeline or save it with <code>radveil_volume_save</code>.</p></div><div class="pane" role="tabpanel" data-lang="sh"><p class="tab-note">The CLI works on NIfTI files; convert DICOM first (for example with dcm2niix).</p></div></div>
+
+<h3 id="g-region">Region only: process it yourself<a class="anchor" href="#g-region">#</a></h3>
+<p>An API-only escape hatch. <code>anonymization_mask</code> runs detection, validation, the safety refusals and
+(optionally) the brain check, then returns the exact region <code>deface_auto</code> would rewrite. The volume is not
+touched. Escalations in <code>deface_auto</code> reuse the same region, so this is the final mask.</p>
+<div class="tabs"><div class="tablist" role="tablist"><button type="button" role="tab" data-lang="py">Python</button><button type="button" role="tab" data-lang="rs">Rust</button><button type="button" role="tab" data-lang="c">C / C++</button><button type="button" role="tab" data-lang="sh">CLI</button></div><div class="pane" role="tabpanel" data-lang="py"><div class="code"><div class="code-title">region.py</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="python"><code><span class="t-kw">import</span> radveil
+
+report = radveil.<span class="t-fn">anonymization_mask</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>, mask_path=<span class="t-str">&quot;t1_region.nii.gz&quot;</span>)
+mask = report[<span class="t-str">&quot;mask&quot;</span>]  <span class="t-com"># uint8 (nx, ny, nz), 1 = voxel deface_auto would rewrite</span>
+<span class="t-fn">print</span>(mask.shape, <span class="t-fn">int</span>(mask.<span class="t-fn">sum</span>()), report[<span class="t-str">&quot;voxels_changed&quot;</span>])</code></pre></div></div><div class="pane" role="tabpanel" data-lang="rs"><div class="code"><div class="code-title">region.rs</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="rust"><code><span class="t-kw">use</span> radveil_core::{anonymization_mask, <span class="t-ty">AutoParams</span>, <span class="t-ty">MediaPipeDetector</span>, <span class="t-ty">Volume</span>};
+
+<span class="t-kw">fn</span> <span class="t-fn">main</span>() -&gt; <span class="t-ty">Result</span>&lt;(), <span class="t-ty">Box</span>&lt;<span class="t-kw">dyn</span> std::error::<span class="t-ty">Error</span>&gt;&gt; {
+    <span class="t-kw">let</span> vol = <span class="t-ty">Volume</span>::<span class="t-fn">load</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>)?;
+    <span class="t-kw">let</span> report = <span class="t-fn">anonymization_mask</span>(
+        &amp;vol,
+        &amp;<span class="t-kw">mut</span> <span class="t-ty">MediaPipeDetector</span>::<span class="t-fn">default</span>(),
+        &amp;<span class="t-ty">AutoParams</span>::<span class="t-fn">default</span>(),
+    )?;
+    <span class="t-kw">let</span> mask = report
+        .mask
+        .<span class="t-fn">expect</span>(<span class="t-str">&quot;anonymization_mask always returns the mask&quot;</span>);
+    <span class="t-kw">let</span> n = mask.<span class="t-fn">iter</span>().<span class="t-fn">filter</span>(|&amp;&amp;m| m == <span class="t-num">1</span>).<span class="t-fn">count</span>();
+    <span class="t-mac">println!</span>(
+        <span class="t-str">&quot;{n} voxels would be rewritten (report: {})&quot;</span>,
+        report.deface.voxels_changed
+    );
+    <span class="t-com">// Save it on the same grid, e.g. for review in a viewer.</span>
+    <span class="t-ty">Volume</span>::<span class="t-fn">from_array</span>(mask.<span class="t-fn">mapv</span>(f32::from), vol.affine).<span class="t-fn">save</span>(<span class="t-str">&quot;t1_region.nii.gz&quot;</span>)?;
+    <span class="t-kw">Ok</span>(())
+}</code></pre></div></div><div class="pane" role="tabpanel" data-lang="c"><div class="code"><div class="code-title">region.cpp</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="cpp"><code><span class="t-pp">#include &lt;cstdio&gt;</span>
+<span class="t-pp">#include &lt;memory&gt;</span>
+<span class="t-pp">#include &lt;stdexcept&gt;</span>
+<span class="t-pp">#include &lt;vector&gt;</span>
+<span class="t-pp">#include &quot;radveil.h&quot;</span>
+
+<span class="t-com">// RAII ownership for the opaque volume handle.</span>
+<span class="t-kw">struct</span> VolumeFree { <span class="t-kw">void</span> <span class="t-fn">operator</span>()(<span class="t-ty">RadveilVolume</span> *v) <span class="t-kw">const</span> { <span class="t-fn">radveil_volume_free</span>(v); } };
+<span class="t-kw">using</span> Volume = std::unique_ptr&lt;<span class="t-ty">RadveilVolume</span>, VolumeFree&gt;;
+
+<span class="t-kw">static</span> <span class="t-kw">void</span> <span class="t-fn">check</span>(<span class="t-ty">int32_t</span> rc) {
+    <span class="t-kw">if</span> (rc != <span class="t-num">0</span>) <span class="t-kw">throw</span> std::<span class="t-fn">runtime_error</span>(<span class="t-fn">radveil_last_error</span>());
+}
+
+<span class="t-kw">int</span> <span class="t-fn">main</span>() {
+    Volume vol{<span class="t-fn">radveil_volume_load</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>)};
+    <span class="t-kw">if</span> (!vol) <span class="t-kw">throw</span> std::<span class="t-fn">runtime_error</span>(<span class="t-fn">radveil_last_error</span>());
+
+    <span class="t-ty">uint64_t</span> dims[<span class="t-num">3</span>];
+    <span class="t-fn">radveil_volume_shape</span>(vol.<span class="t-fn">get</span>(), dims);
+    std::vector&lt;<span class="t-ty">uint8_t</span>&gt; <span class="t-fn">mask</span>(dims[<span class="t-num">0</span>] * dims[<span class="t-num">1</span>] * dims[<span class="t-num">2</span>]);  <span class="t-com">// C order, k fastest</span>
+
+    <span class="t-ty">RadveilDefaceParams</span> params;
+    <span class="t-fn">radveil_deface_params_init</span>(&amp;params);  <span class="t-com">// every field &quot;auto&quot; ...</span>
+    params.skin_depth_mm = <span class="t-num">4.0</span>;           <span class="t-com">// ... then override what you need</span>
+
+    <span class="t-ty">RadveilAutoReport</span> rep;
+    <span class="t-fn">check</span>(<span class="t-fn">radveil_anonymization_mask</span>(vol.<span class="t-fn">get</span>(), <span class="t-str">&quot;adaptive&quot;</span>, <span class="t-str">&quot;face&quot;</span>, &amp;params, <span class="t-kw">nullptr</span>,
+                                     <span class="t-com">/*brain=*/</span><span class="t-num">0</span>, mask.<span class="t-fn">data</span>(), &amp;rep));
+    std::<span class="t-fn">printf</span>(<span class="t-str">&quot;%llu voxels would be rewritten; the volume is untouched\n&quot;</span>,
+                (<span class="t-kw">unsigned</span> <span class="t-kw">long</span> <span class="t-kw">long</span>)rep.base.voxels_changed);
+}</code></pre></div></div><div class="pane" role="tabpanel" data-lang="sh"><div class="code"><div class="code-title">region.sh</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="bash"><code><span class="t-com"># The CLI always anonymizes. The region-only escape hatch is API-only;</span>
+<span class="t-com"># --mask-out writes the region alongside the anonymized output.</span>
+<span class="t-fn">radveil</span> auto t1.nii.gz t1_defaced.nii.gz <span class="t-flag">--mode</span> adaptive <span class="t-flag">--mask-out</span> t1_region.nii.gz</code></pre></div></div></div>
+<div class="note warn"><b class="h">Nothing is verified in this mode</b>
+The mask says where RadVeil would anonymize, not that <em>your</em> processing of it hides the face. Check the result:
+render it and run <a href="#py-detect_landmarks"><code>detect_landmarks</code></a> on the views, or run
+<code>deface_auto</code> on your output and expect a refusal.</div>
+
+<h3 id="g-brain">Brain check &amp; brain extraction<a class="anchor" href="#g-brain">#</a></h3>
+<p>Two opt-in safety options, sharing one brain extraction from the <em>input</em> (SynthStrip, pure Rust, ~3 s):
+<code>brain_guard</code> never modifies the brain or anything within 3 mm of it, and <code>brain_check</code> reports
+how many brain voxels were modified and how close the change came. Brain extraction is also available on its own.</p>
+<div class="tabs"><div class="tablist" role="tablist"><button type="button" role="tab" data-lang="py">Python</button><button type="button" role="tab" data-lang="rs">Rust</button><button type="button" role="tab" data-lang="c">C / C++</button><button type="button" role="tab" data-lang="sh">CLI</button></div><div class="pane" role="tabpanel" data-lang="py"><div class="code"><div class="code-title">brain.py</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="python"><code><span class="t-kw">import</span> radveil
+
+rep = radveil.<span class="t-fn">deskull</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>, <span class="t-str">&quot;t1_brain.nii.gz&quot;</span>, mask_path=<span class="t-str">&quot;t1_brain_mask.nii.gz&quot;</span>)
+<span class="t-fn">print</span>(<span class="t-str">f&quot;brain {rep[&#x27;brain_volume_ml&#x27;]:.0f} ml&quot;</span>)
+
+<span class="t-com"># brain_guard: never modify the brain or anything within 3 mm of it (opt-in,</span>
+<span class="t-com"># ~3 s per volume); brain_check: report what happened, from the same extraction.</span>
+report = radveil.<span class="t-fn">deface_auto</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>, <span class="t-str">&quot;t1_defaced.nii.gz&quot;</span>, brain_guard=<span class="t-kw">True</span>, brain_check=<span class="t-kw">True</span>)
+<span class="t-kw">assert</span> report[<span class="t-str">&quot;brain&quot;</span>][<span class="t-str">&quot;voxels_modified&quot;</span>] == <span class="t-num">0</span>, report[<span class="t-str">&quot;brain&quot;</span>]
+<span class="t-fn">print</span>(<span class="t-str">&quot;brain untouched, margin&quot;</span>, report[<span class="t-str">&quot;brain&quot;</span>][<span class="t-str">&quot;margin_mm&quot;</span>], <span class="t-str">&quot;mm&quot;</span>)</code></pre></div></div><div class="pane" role="tabpanel" data-lang="rs"><div class="code"><div class="code-title">brain.rs</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="rust"><code><span class="t-kw">use</span> radveil_core::{brain_mask, deface_auto, <span class="t-ty">AutoParams</span>, <span class="t-ty">DeskullParams</span>, <span class="t-ty">MediaPipeDetector</span>, <span class="t-ty">Volume</span>};
+
+<span class="t-kw">fn</span> <span class="t-fn">main</span>() -&gt; <span class="t-ty">Result</span>&lt;(), <span class="t-ty">Box</span>&lt;<span class="t-kw">dyn</span> std::error::<span class="t-ty">Error</span>&gt;&gt; {
+    <span class="t-com">// Brain extraction on its own (SynthStrip, pure Rust).</span>
+    <span class="t-kw">let</span> vol = <span class="t-ty">Volume</span>::<span class="t-fn">load</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>)?;
+    <span class="t-kw">let</span> (brain, rep) = <span class="t-fn">brain_mask</span>(&amp;vol, &amp;<span class="t-ty">DeskullParams</span>::<span class="t-fn">default</span>())?;
+    <span class="t-mac">println!</span>(
+        <span class="t-str">&quot;brain {:.0} ml, {} voxels&quot;</span>,
+        rep.brain_volume_ml,
+        brain.<span class="t-fn">iter</span>().<span class="t-fn">filter</span>(|&amp;&amp;b| b == <span class="t-num">1</span>).<span class="t-fn">count</span>()
+    );
+
+    <span class="t-com">// Or around anonymization: the guard never modifies the brain (opt-in,</span>
+    <span class="t-com">// ~3 s per volume); the check reports on it from the same extraction.</span>
+    <span class="t-kw">let</span> <span class="t-kw">mut</span> vol = <span class="t-ty">Volume</span>::<span class="t-fn">load</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>)?;
+    <span class="t-kw">let</span> params = <span class="t-ty">AutoParams</span> {
+        brain_guard: <span class="t-kw">true</span>,
+        brain_check: <span class="t-kw">true</span>,
+        ..<span class="t-ty">Default</span>::<span class="t-fn">default</span>()
+    };
+    <span class="t-kw">let</span> report = <span class="t-fn">deface_auto</span>(&amp;<span class="t-kw">mut</span> vol, &amp;<span class="t-kw">mut</span> <span class="t-ty">MediaPipeDetector</span>::<span class="t-fn">default</span>(), &amp;params)?;
+    <span class="t-kw">let</span> check = report.brain.<span class="t-fn">expect</span>(<span class="t-str">&quot;brain_check was requested&quot;</span>);
+    <span class="t-mac">assert_eq!</span>(check.voxels_modified, <span class="t-num">0</span>, <span class="t-str">&quot;anonymization touched the brain&quot;</span>);
+    <span class="t-kw">Ok</span>(())
+}</code></pre></div></div><div class="pane" role="tabpanel" data-lang="c"><p class="tab-note">Pass <code>RADVEIL_BRAIN_GUARD | RADVEIL_BRAIN_CHECK</code> as <code>brain</code> to <a href='#c-deface_auto'><code>radveil_deface_auto</code></a> (see the <a href='#quickstart'>quick start</a>) and read <code>report.brain_voxels_modified</code>; extract the brain with <a href='#c-deskull'><code>radveil_deskull</code></a>.</p></div><div class="pane" role="tabpanel" data-lang="sh"><div class="code"><div class="code-title">brain.sh</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="bash"><code><span class="t-fn">radveil</span> deskull t1.nii.gz <span class="t-flag">-o</span> t1_brain.nii.gz <span class="t-flag">--mask-out</span> t1_brain_mask.nii.gz
+
+<span class="t-com"># --brain-guard: never modify the brain or anything within 3 mm of it (~3 s).</span>
+<span class="t-com"># --brain-check: exit status 3 if a brain voxel was modified (output still written).</span>
+<span class="t-fn">radveil</span> auto t1.nii.gz t1_defaced.nii.gz <span class="t-flag">--brain-guard</span> <span class="t-flag">--brain-check</span></code></pre></div></div></div>
+
+<h3 id="g-detector">Your own face detector<a class="anchor" href="#g-detector">#</a></h3>
+<p>The built-in detector (MediaPipe BlazeFace + Face Mesh, embedded) needs no setup. To use another model, give the
+pipeline 68 landmarks in the standard 68-point (iBUG) order on each rendered view; validation and verification still run. In C, hosts
+supply 68 world-space points directly.</p>
+<div class="tabs"><div class="tablist" role="tablist"><button type="button" role="tab" data-lang="py">Python</button><button type="button" role="tab" data-lang="rs">Rust</button><button type="button" role="tab" data-lang="c">C / C++</button><button type="button" role="tab" data-lang="sh">CLI</button></div><div class="pane" role="tabpanel" data-lang="py"><div class="code"><div class="code-title">detector.py</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="python"><code><span class="t-kw">import</span> numpy <span class="t-kw">as</span> np
+<span class="t-kw">import</span> radveil
+
+<span class="t-kw">def</span> <span class="t-fn">my_detector</span>(rgb: np.ndarray, try_rotations: bool):
+    <span class="t-str">&quot;&quot;&quot;Return None, a (68, 2) array in the 68-point (iBUG) order, or (array, score).&quot;&quot;&quot;</span>
+    <span class="t-kw">return</span> radveil.<span class="t-fn">detect_landmarks</span>(rgb, try_rotations=try_rotations)
+
+report = radveil.<span class="t-fn">deface_auto</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>, <span class="t-str">&quot;t1_defaced.nii.gz&quot;</span>, detector=my_detector)
+<span class="t-fn">print</span>(report[<span class="t-str">&quot;detector&quot;</span>], report[<span class="t-str">&quot;views_detected&quot;</span>])</code></pre></div></div><div class="pane" role="tabpanel" data-lang="rs"><div class="code"><div class="code-title">detector.rs</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="rust"><code><span class="t-kw">use</span> radveil_core::{deface_auto, <span class="t-ty">AutoParams</span>, <span class="t-ty">Detection</span>, <span class="t-ty">FaceDetector</span>, <span class="t-ty">Volume</span>};
+
+<span class="t-com">/// Any 2D landmark model can drive the pipeline: return 68 points in</span>
+<span class="t-com">/// the standard 68-point (iBUG) order (pixel coordinates of the rendered view), or None.</span>
+<span class="t-kw">struct</span> <span class="t-ty">MyDetector</span>;
+
+<span class="t-kw">impl</span> <span class="t-ty">FaceDetector</span> <span class="t-kw">for</span> <span class="t-ty">MyDetector</span> {
+    <span class="t-kw">fn</span> <span class="t-fn">detect</span>(
+        &amp;<span class="t-kw">mut</span> <span class="t-kw">self</span>,
+        rgb: &amp;[u8],
+        w: usize,
+        h: usize,
+        _try_rotations: bool,
+    ) -&gt; <span class="t-ty">Result</span>&lt;<span class="t-ty">Option</span>&lt;<span class="t-ty">Detection</span>&gt;, <span class="t-ty">String</span>&gt; {
+        <span class="t-kw">let</span> _ = (rgb, w, h); <span class="t-com">// run your model here</span>
+        <span class="t-kw">Ok</span>(<span class="t-kw">None</span>)
+    }
+}
+
+<span class="t-kw">fn</span> <span class="t-fn">main</span>() {
+    <span class="t-kw">let</span> <span class="t-kw">mut</span> vol = <span class="t-ty">Volume</span>::<span class="t-fn">load</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>).<span class="t-fn">expect</span>(<span class="t-str">&quot;load&quot;</span>);
+    <span class="t-kw">match</span> <span class="t-fn">deface_auto</span>(&amp;<span class="t-kw">mut</span> vol, &amp;<span class="t-kw">mut</span> <span class="t-ty">MyDetector</span>, &amp;<span class="t-ty">AutoParams</span>::<span class="t-fn">default</span>()) {
+        <span class="t-kw">Ok</span>(r) =&gt; <span class="t-mac">println!</span>(<span class="t-str">&quot;{} voxels changed&quot;</span>, r.deface.voxels_changed),
+        <span class="t-kw">Err</span>(refusal) =&gt; <span class="t-mac">eprintln!</span>(<span class="t-str">&quot;refused, volume untouched: {refusal}&quot;</span>),
+    }
+}</code></pre></div></div><div class="pane" role="tabpanel" data-lang="c"><div class="code"><div class="code-title">landmarks.c</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="c"><code><span class="t-pp">#include &lt;math.h&gt;</span>
+<span class="t-pp">#include &lt;stdio.h&gt;</span>
+<span class="t-pp">#include &quot;radveil.h&quot;</span>
+
+<span class="t-com">/* Your own detector: 68 landmarks (standard 68-point order), world RAS+ mm.
+ * Here they are read from &quot;points.txt&quot; (one &quot;x y z&quot; per line, &quot;nan nan nan&quot;
+ * for a missing point). To lift 2D detections yourself, render with
+ * radveil_render: its pos output maps every pixel to a world position. */</span>
+<span class="t-kw">int</span> <span class="t-fn">main</span>(<span class="t-kw">void</span>) {
+    <span class="t-kw">double</span> pts[<span class="t-num">68</span> * <span class="t-num">3</span>];
+    <span class="t-ty">FILE</span> *f = <span class="t-fn">fopen</span>(<span class="t-str">&quot;points.txt&quot;</span>, <span class="t-str">&quot;r&quot;</span>);
+    <span class="t-kw">if</span> (!f) { <span class="t-fn">perror</span>(<span class="t-str">&quot;points.txt&quot;</span>); <span class="t-kw">return</span> <span class="t-num">1</span>; }
+    <span class="t-kw">for</span> (<span class="t-kw">int</span> i = <span class="t-num">0</span>; i &lt; <span class="t-num">68</span> * <span class="t-num">3</span>; i++)
+        <span class="t-kw">if</span> (<span class="t-fn">fscanf</span>(f, <span class="t-str">&quot;%lf&quot;</span>, &amp;pts[i]) != <span class="t-num">1</span>) pts[i] = NAN;
+    <span class="t-fn">fclose</span>(f);
+
+    <span class="t-ty">RadveilVolume</span> *vol = <span class="t-fn">radveil_volume_load</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>);
+    <span class="t-kw">if</span> (!vol) { <span class="t-fn">fprintf</span>(stderr, <span class="t-str">&quot;%s\n&quot;</span>, <span class="t-fn">radveil_last_error</span>()); <span class="t-kw">return</span> <span class="t-num">1</span>; }
+    <span class="t-ty">RadveilReport</span> rep;
+    <span class="t-kw">if</span> (<span class="t-fn">radveil_deface</span>(vol, pts, <span class="t-str">&quot;adaptive&quot;</span>, <span class="t-kw">NULL</span>, <span class="t-kw">NULL</span>, &amp;rep) != <span class="t-num">0</span>) {
+        <span class="t-fn">fprintf</span>(stderr, <span class="t-str">&quot;%s\n&quot;</span>, <span class="t-fn">radveil_last_error</span>());
+        <span class="t-fn">radveil_volume_free</span>(vol);
+        <span class="t-kw">return</span> <span class="t-num">1</span>;
+    }
+    <span class="t-fn">printf</span>(<span class="t-str">&quot;%llu voxels changed (no verification: check the result)\n&quot;</span>,
+           (<span class="t-kw">unsigned</span> <span class="t-kw">long</span> <span class="t-kw">long</span>)rep.voxels_changed);
+    <span class="t-fn">radveil_volume_save</span>(vol, <span class="t-str">&quot;t1_defaced.nii.gz&quot;</span>, <span class="t-num">1</span>);
+    <span class="t-fn">radveil_volume_free</span>(vol);
+    <span class="t-kw">return</span> <span class="t-num">0</span>;
+}</code></pre></div></div><div class="pane" role="tabpanel" data-lang="sh"><p class="tab-note">Pass 68 world-space points as JSON: <code>radveil deface in.nii.gz out.nii.gz --landmarks3d points.json</code> (see <a href='#g-steps'>step by step</a>).</p></div></div>
+<p>Whatever detector found the face, verification also attacks the output with the built-in one. In Python,
+<code>detector="dlib"</code> selects the optional dlib detector (<code>pip install "radveil[dlib]"</code> and
+<a href="#py-fetch_predictor"><code>fetch_predictor()</code></a>): dlib's CC0 5-point model by default, eyes and
+nose base measured, mouth inferred, jaw unused. <code>fallback_detector="dlib"</code> instead keeps the built-in
+detector and processes only the scans it rejects, with the brain guard on (<code>fallback_brain_guard=True</code>);
+the report's <code>fallback_used</code> says which ran. dlib's research-only 68-point models are used only when
+passed as <code>predictor_path</code>, with a license warning.</p>
+
+<h3 id="g-batch">Cohorts<a class="anchor" href="#g-batch">#</a></h3>
+<p><code>deface_batch</code> runs <code>workers</code> volumes at a time (default min(cpu_count, 32, n)) on threads in
+one process: the Rust core releases the GIL, so threads scale like processes and share one copy of the detector
+models. <code>executor="processes"</code> isolates each volume in a spawned worker instead (then call it under
+<code>if __name__ == "__main__":</code>). Refused or failed inputs are reported, not raised.</p>
+<div class="tabs"><div class="tablist" role="tablist"><button type="button" role="tab" data-lang="py">Python</button><button type="button" role="tab" data-lang="rs">Rust</button><button type="button" role="tab" data-lang="c">C / C++</button><button type="button" role="tab" data-lang="sh">CLI</button></div><div class="pane" role="tabpanel" data-lang="py"><div class="code"><div class="code-title">batch.py</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="python"><code><span class="t-kw">import</span> radveil
+
+<span class="t-com"># Threads in this process by default (the Rust core releases the GIL);</span>
+<span class="t-com"># executor=&quot;processes&quot; isolates each volume in a worker process instead.</span>
+reports = radveil.<span class="t-fn">deface_batch</span>(<span class="t-str">&quot;cohort/*.nii.gz&quot;</span>, output_dir=<span class="t-str">&quot;defaced&quot;</span>, mode=<span class="t-str">&quot;adaptive&quot;</span>, workers=<span class="t-num">2</span>)
+<span class="t-kw">for</span> r <span class="t-kw">in</span> reports:
+    <span class="t-fn">print</span>(r[<span class="t-str">&quot;input&quot;</span>], r.<span class="t-fn">get</span>(<span class="t-str">&quot;error&quot;</span>) <span class="t-kw">or</span> <span class="t-str">f&quot;{r[&#x27;voxels_changed&#x27;]} voxels&quot;</span>)</code></pre></div></div><div class="pane" role="tabpanel" data-lang="rs"><p class="tab-note">Call <code>deface_auto</code> per file from your own thread pool; each thread needs its own <code>MediaPipeDetector</code>.</p></div><div class="pane" role="tabpanel" data-lang="c"><p class="tab-note">Call <code>radveil_deface_auto</code> per volume; errors are thread-local (<code>radveil_last_error</code>).</p></div><div class="pane" role="tabpanel" data-lang="sh"><div class="code"><div class="code-title">batch.sh</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="bash"><code>mkdir <span class="t-flag">-p</span> defaced
+<span class="t-kw">for</span> f <span class="t-kw">in</span> cohort/*.nii.gz; <span class="t-kw">do</span>
+  <span class="t-fn">radveil</span> auto <span class="t-str">&quot;$f&quot;</span> <span class="t-str">&quot;defaced/$(basename &quot;</span><span class="t-var">$f</span><span class="t-str">&quot; .nii.gz)_defaced.nii.gz&quot;</span> <span class="t-flag">--mode</span> adaptive \
+    || echo <span class="t-str">&quot;$f: refused or failed (exit $?)&quot;</span> &gt;&amp;2
+<span class="t-kw">done</span></code></pre></div></div></div>
+
+<h3 id="g-refusal">Handling refusals<a class="anchor" href="#g-refusal">#</a></h3>
+<p>A refusal means RadVeil found no face it trusts and changed nothing. Treat it as an item for human review, never
+as processed. Anonymizing an already-anonymized scan is the classic case:</p>
+<div class="tabs"><div class="tablist" role="tablist"><button type="button" role="tab" data-lang="py">Python</button><button type="button" role="tab" data-lang="rs">Rust</button><button type="button" role="tab" data-lang="c">C / C++</button><button type="button" role="tab" data-lang="sh">CLI</button></div><div class="pane" role="tabpanel" data-lang="py"><div class="code"><div class="code-title">refusal.py</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="python"><code><span class="t-kw">import</span> radveil
+
+<span class="t-kw">try</span>:
+    radveil.<span class="t-fn">deface_auto</span>(<span class="t-str">&quot;t1_defaced.nii.gz&quot;</span>, <span class="t-str">&quot;twice.nii.gz&quot;</span>)
+<span class="t-kw">except</span> <span class="t-ty">RuntimeError</span> <span class="t-kw">as</span> refusal:  <span class="t-com"># nothing was written</span>
+    <span class="t-fn">print</span>(<span class="t-str">&quot;refused:&quot;</span>, <span class="t-fn">str</span>(refusal)[:<span class="t-num">60</span>])</code></pre></div></div><div class="pane" role="tabpanel" data-lang="rs"><div class="code"><div class="code-title">detector.rs</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="rust"><code><span class="t-kw">use</span> radveil_core::{deface_auto, <span class="t-ty">AutoParams</span>, <span class="t-ty">Detection</span>, <span class="t-ty">FaceDetector</span>, <span class="t-ty">Volume</span>};
+
+<span class="t-com">/// Any 2D landmark model can drive the pipeline: return 68 points in</span>
+<span class="t-com">/// the standard 68-point (iBUG) order (pixel coordinates of the rendered view), or None.</span>
+<span class="t-kw">struct</span> <span class="t-ty">MyDetector</span>;
+
+<span class="t-kw">impl</span> <span class="t-ty">FaceDetector</span> <span class="t-kw">for</span> <span class="t-ty">MyDetector</span> {
+    <span class="t-kw">fn</span> <span class="t-fn">detect</span>(
+        &amp;<span class="t-kw">mut</span> <span class="t-kw">self</span>,
+        rgb: &amp;[u8],
+        w: usize,
+        h: usize,
+        _try_rotations: bool,
+    ) -&gt; <span class="t-ty">Result</span>&lt;<span class="t-ty">Option</span>&lt;<span class="t-ty">Detection</span>&gt;, <span class="t-ty">String</span>&gt; {
+        <span class="t-kw">let</span> _ = (rgb, w, h); <span class="t-com">// run your model here</span>
+        <span class="t-kw">Ok</span>(<span class="t-kw">None</span>)
+    }
+}
+
+<span class="t-kw">fn</span> <span class="t-fn">main</span>() {
+    <span class="t-kw">let</span> <span class="t-kw">mut</span> vol = <span class="t-ty">Volume</span>::<span class="t-fn">load</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>).<span class="t-fn">expect</span>(<span class="t-str">&quot;load&quot;</span>);
+    <span class="t-kw">match</span> <span class="t-fn">deface_auto</span>(&amp;<span class="t-kw">mut</span> vol, &amp;<span class="t-kw">mut</span> <span class="t-ty">MyDetector</span>, &amp;<span class="t-ty">AutoParams</span>::<span class="t-fn">default</span>()) {
+        <span class="t-kw">Ok</span>(r) =&gt; <span class="t-mac">println!</span>(<span class="t-str">&quot;{} voxels changed&quot;</span>, r.deface.voxels_changed),
+        <span class="t-kw">Err</span>(refusal) =&gt; <span class="t-mac">eprintln!</span>(<span class="t-str">&quot;refused, volume untouched: {refusal}&quot;</span>),
+    }
+}</code></pre></div></div><div class="pane" role="tabpanel" data-lang="c"><div class="code"><div class="code-title">quickstart.c</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="c"><code><span class="t-pp">#include &lt;stdio.h&gt;</span>
+<span class="t-pp">#include &quot;radveil.h&quot;</span>
+
+<span class="t-kw">int</span> <span class="t-fn">main</span>(<span class="t-kw">void</span>) {
+    <span class="t-ty">RadveilVolume</span> *vol = <span class="t-fn">radveil_volume_load</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>);
+    <span class="t-kw">if</span> (!vol) { <span class="t-fn">fprintf</span>(stderr, <span class="t-str">&quot;load: %s\n&quot;</span>, <span class="t-fn">radveil_last_error</span>()); <span class="t-kw">return</span> <span class="t-num">1</span>; }
+
+    <span class="t-ty">RadveilAutoReport</span> rep;
+    <span class="t-kw">if</span> (<span class="t-fn">radveil_deface_auto</span>(vol, <span class="t-str">&quot;adaptive&quot;</span>, <span class="t-str">&quot;face&quot;</span>, <span class="t-kw">NULL</span>, <span class="t-kw">NULL</span>,
+                            <span class="t-com">/*verify=*/</span><span class="t-num">1</span>, <span class="t-com">/*brain=*/</span>RADVEIL_BRAIN_CHECK, <span class="t-kw">NULL</span>, &amp;rep) != <span class="t-num">0</span>) {
+        <span class="t-fn">fprintf</span>(stderr, <span class="t-str">&quot;refused: %s\n&quot;</span>, <span class="t-fn">radveil_last_error</span>());  <span class="t-com">/* volume untouched */</span>
+        <span class="t-fn">radveil_volume_free</span>(vol);
+        <span class="t-kw">return</span> <span class="t-num">2</span>;
+    }
+    <span class="t-fn">printf</span>(<span class="t-str">&quot;%llu voxels changed, %d faces left, %lld brain voxels touched\n&quot;</span>,
+           (<span class="t-kw">unsigned</span> <span class="t-kw">long</span> <span class="t-kw">long</span>)rep.base.voxels_changed, rep.residual_detections,
+           (<span class="t-kw">long</span> <span class="t-kw">long</span>)rep.brain_voxels_modified);
+    <span class="t-kw">if</span> (<span class="t-fn">radveil_volume_save</span>(vol, <span class="t-str">&quot;t1_defaced.nii.gz&quot;</span>, <span class="t-num">1</span>) != <span class="t-num">0</span>)
+        <span class="t-fn">fprintf</span>(stderr, <span class="t-str">&quot;save: %s\n&quot;</span>, <span class="t-fn">radveil_last_error</span>());
+    <span class="t-fn">radveil_volume_free</span>(vol);
+    <span class="t-kw">return</span> <span class="t-num">0</span>;
+}</code></pre></div></div><div class="pane" role="tabpanel" data-lang="sh"><div class="code"><div class="code-title">refusal.sh</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="bash"><code><span class="t-kw">if</span> ! <span class="t-fn">radveil</span> auto t1_defaced.nii.gz twice.nii.gz; <span class="t-kw">then</span>
+  echo <span class="t-str">&quot;refused: nothing was written&quot;</span>   <span class="t-com"># exit status 1</span>
+<span class="t-kw">fi</span></code></pre></div></div></div>
+<p>The messages are listed under <a href="#errors">errors &amp; refusals</a>.</p>
+
+<h3 id="g-steps">Step by step<a class="anchor" href="#g-steps">#</a></h3>
+<p>Every stage is exposed: render views with a position map, detect 2D landmarks, lift them to 3D, anonymize. This
+path skips shape-consensus validation and verification, so prefer <code>deface_volume</code> unless you need the parts.</p>
+<div class="tabs"><div class="tablist" role="tablist"><button type="button" role="tab" data-lang="py">Python</button><button type="button" role="tab" data-lang="rs">Rust</button><button type="button" role="tab" data-lang="c">C / C++</button><button type="button" role="tab" data-lang="sh">CLI</button></div><div class="pane" role="tabpanel" data-lang="py"><div class="code"><div class="code-title">steps.py</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="python"><code><span class="t-kw">import</span> radveil
+
+vol = radveil.<span class="t-fn">Volume</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>)
+views = [vol.<span class="t-fn">render</span>(yaw_deg=yaw) <span class="t-kw">for</span> yaw <span class="t-kw">in</span> (-<span class="t-num">20</span>, <span class="t-num">0</span>, <span class="t-num">20</span>)]
+landmarks = [radveil.<span class="t-fn">detect_landmarks</span>(v[<span class="t-str">&quot;rgb&quot;</span>]) <span class="t-kw">for</span> v <span class="t-kw">in</span> views]  <span class="t-com"># (68, 2) or None</span>
+points = radveil.<span class="t-fn">lift_landmarks</span>(views, landmarks)                <span class="t-com"># 68 x (x, y, z) | None</span>
+report = vol.<span class="t-fn">deface</span>(points, mode=<span class="t-str">&quot;adaptive&quot;</span>)
+vol.<span class="t-fn">save</span>(<span class="t-str">&quot;t1_defaced.nii.gz&quot;</span>)
+<span class="t-fn">print</span>(report[<span class="t-str">&quot;voxels_changed&quot;</span>], <span class="t-str">&quot;voxels changed&quot;</span>)</code></pre></div></div><div class="pane" role="tabpanel" data-lang="rs"><p class="tab-note"><code>render_view</code> → your detector → <code>RenderView::world_at</code> → <code>face_frame_from_landmarks</code> → <code>deface</code>; see the <a href='#rs-render'>Rust reference</a>.</p></div><div class="pane" role="tabpanel" data-lang="c"><div class="code"><div class="code-title">landmarks.c</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="c"><code><span class="t-pp">#include &lt;math.h&gt;</span>
+<span class="t-pp">#include &lt;stdio.h&gt;</span>
+<span class="t-pp">#include &quot;radveil.h&quot;</span>
+
+<span class="t-com">/* Your own detector: 68 landmarks (standard 68-point order), world RAS+ mm.
+ * Here they are read from &quot;points.txt&quot; (one &quot;x y z&quot; per line, &quot;nan nan nan&quot;
+ * for a missing point). To lift 2D detections yourself, render with
+ * radveil_render: its pos output maps every pixel to a world position. */</span>
+<span class="t-kw">int</span> <span class="t-fn">main</span>(<span class="t-kw">void</span>) {
+    <span class="t-kw">double</span> pts[<span class="t-num">68</span> * <span class="t-num">3</span>];
+    <span class="t-ty">FILE</span> *f = <span class="t-fn">fopen</span>(<span class="t-str">&quot;points.txt&quot;</span>, <span class="t-str">&quot;r&quot;</span>);
+    <span class="t-kw">if</span> (!f) { <span class="t-fn">perror</span>(<span class="t-str">&quot;points.txt&quot;</span>); <span class="t-kw">return</span> <span class="t-num">1</span>; }
+    <span class="t-kw">for</span> (<span class="t-kw">int</span> i = <span class="t-num">0</span>; i &lt; <span class="t-num">68</span> * <span class="t-num">3</span>; i++)
+        <span class="t-kw">if</span> (<span class="t-fn">fscanf</span>(f, <span class="t-str">&quot;%lf&quot;</span>, &amp;pts[i]) != <span class="t-num">1</span>) pts[i] = NAN;
+    <span class="t-fn">fclose</span>(f);
+
+    <span class="t-ty">RadveilVolume</span> *vol = <span class="t-fn">radveil_volume_load</span>(<span class="t-str">&quot;t1.nii.gz&quot;</span>);
+    <span class="t-kw">if</span> (!vol) { <span class="t-fn">fprintf</span>(stderr, <span class="t-str">&quot;%s\n&quot;</span>, <span class="t-fn">radveil_last_error</span>()); <span class="t-kw">return</span> <span class="t-num">1</span>; }
+    <span class="t-ty">RadveilReport</span> rep;
+    <span class="t-kw">if</span> (<span class="t-fn">radveil_deface</span>(vol, pts, <span class="t-str">&quot;adaptive&quot;</span>, <span class="t-kw">NULL</span>, <span class="t-kw">NULL</span>, &amp;rep) != <span class="t-num">0</span>) {
+        <span class="t-fn">fprintf</span>(stderr, <span class="t-str">&quot;%s\n&quot;</span>, <span class="t-fn">radveil_last_error</span>());
+        <span class="t-fn">radveil_volume_free</span>(vol);
+        <span class="t-kw">return</span> <span class="t-num">1</span>;
+    }
+    <span class="t-fn">printf</span>(<span class="t-str">&quot;%llu voxels changed (no verification: check the result)\n&quot;</span>,
+           (<span class="t-kw">unsigned</span> <span class="t-kw">long</span> <span class="t-kw">long</span>)rep.voxels_changed);
+    <span class="t-fn">radveil_volume_save</span>(vol, <span class="t-str">&quot;t1_defaced.nii.gz&quot;</span>, <span class="t-num">1</span>);
+    <span class="t-fn">radveil_volume_free</span>(vol);
+    <span class="t-kw">return</span> <span class="t-num">0</span>;
+}</code></pre></div></div><div class="pane" role="tabpanel" data-lang="sh"><div class="code"><div class="code-title">steps.sh</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="bash"><code><span class="t-fn">radveil</span> info t1.nii.gz                               <span class="t-com"># shape, spacing, orientation, affine</span>
+<span class="t-fn">radveil</span> render t1.nii.gz <span class="t-flag">-o</span> renders <span class="t-flag">--yaw</span>=-20,0,20   <span class="t-com"># PNG views + camera JSON</span>
+<span class="t-com"># 68 world-space (RAS+ mm) points from any source: {&quot;points&quot;: [[x, y, z] | null, ...]}</span>
+<span class="t-fn">radveil</span> deface t1.nii.gz t1_defaced.nii.gz <span class="t-flag">--landmarks3d</span> points.json <span class="t-flag">--mode</span> adaptive</code></pre></div></div></div>
+</section>
+
+<!-- ============================================================ PYTHON -->
+<section class="part" id="ref-python">
+<div class="eyebrow">Reference</div>
+<h2>Python</h2>
+<p><code>import radveil</code>. Functions take NIfTI paths or <a href="#py-Volume"><code>Volume</code></a> objects and
+return plain dictionaries (see <a href="#py-report">report dictionary</a>). Refusals raise <code>RuntimeError</code>;
+unknown parameters or modes raise <code>ValueError</code>. The heavy work releases the GIL.</p>
+
+<div class="api" id="py-deface_auto"><code class="sig">radveil.<span class="name">deface_auto</span>(input_path, output_path, mode="blur", mask_path=None,
+                    qa_dir=None, gzip_level=1, **kwargs) -&gt; dict</code><div class="body">
+<span class="kind">function</span>
+<p>File to file: load, <a href="#py-deface_volume"><code>deface_volume</code></a>, save. The simplest complete call.</p>
+<h4>Parameters</h4>
+<table>
+<tr><td><code>input_path</code>, <code>output_path</code></td><td class="d"><code>.nii</code> or <code>.nii.gz</code>. Nothing is written if the volume is refused.</td></tr>
+<tr><td><code>mode</code></td><td class="d"><code>"blur"</code> · <code>"adaptive"</code> · <code>"cut"</code> · <code>"block"</code></td></tr>
+<tr><td><code>mask_path</code></td><td class="d">Also write the uint8 mask of changed voxels (needs nibabel).</td></tr>
+<tr><td><code>qa_dir</code></td><td class="d">Write before/after renders with landmark overlays here.</td></tr>
+<tr><td><code>gzip_level</code></td><td class="d">0–9; 1 is ~5× faster than 6 for ~3% larger files.</td></tr>
+<tr><td><code>**kwargs</code></td><td class="d">Anything <a href="#py-deface_volume"><code>deface_volume</code></a> accepts: <code>region</code>, <code>ear_mode</code>, <code>detector</code>, <code>fallback_detector</code>, <code>verify</code>, <code>brain_check</code>, geometry…</td></tr>
+</table>
+<h4>Returns</h4><p>The <a href="#py-report">report</a>, JSON-ready: per-view entries keep only angles and scores, plus <code>output</code> and <code>mask_path</code>.</p>
+</div></div>
+
+<div class="api" id="py-deface_volume"><code class="sig">radveil.<span class="name">deface_volume</span>(vol, mode="blur", region="face", yaws=(-20.0, 0.0, 20.0),
+    pitch=0.0, size=512, detector="mediapipe", predictor_path=None,
+    fallback_detector=None, fallback_brain_guard=True,
+    verify=True, max_verify_rounds=3, verify_pitches=(0.0, -15.0), verify_effort="balanced",
+    partial_face=False, auto_threshold=False,
+    escalate_to_block=True, brain_check=False, brain_guard=False, brain_guard_mm=3.0,
+    threshold_frac=0.14, threshold=None, detector_upsample=1,
+    return_mask=False, **deface_kwargs) -&gt; dict</code><div class="body">
+<span class="kind">function</span>
+<p>The full pipeline on an in-memory <code>Volume</code>, modified in place: render, detect, validate, lift,
+anonymize, verify. Same code as <code>radveil auto</code>.</p>
+<h4>Parameters</h4>
+<table>
+<tr><td><code>vol</code></td><td class="d">A <a href="#py-Volume"><code>Volume</code></a>.</td></tr>
+<tr><td><code>region</code></td><td class="d"><code>"face"</code> · <code>"ears"</code> · <code>"face+ears"</code></td></tr>
+<tr><td><code>ear_mode</code> (keyword)</td><td class="d">Mode for the ear regions; default the same as <code>mode</code>. E.g. <code>mode="adaptive", ear_mode="cut"</code>.</td></tr>
+<tr><td><code>yaws</code>, <code>pitch</code>, <code>size</code></td><td class="d">Detection views: yaw angles and pitch in degrees, render size in pixels.</td></tr>
+<tr><td><code>detector</code>, <code>predictor_path</code></td><td class="d"><code>"mediapipe"</code> (built-in), <code>"dlib"</code> (optional install; CC0 5-point model unless <code>predictor_path</code> names another), or a callable <code>f(rgb, try_rotations)</code> returning <code>None</code>, a (68, 2) array, or <code>(array, score)</code>. Verification also runs the built-in detector whatever this is.</td></tr>
+<tr><td><code>fallback_detector</code>, <code>fallback_brain_guard</code></td><td class="d">Same values as <code>detector</code>: run it when <code>detector</code> finds no validated face (the volume is still untouched), e.g. <code>"dlib"</code>. That run uses the brain guard unless <code>fallback_brain_guard=False</code>. The report's <code>detector</code> and <code>fallback_used</code> say which succeeded.</td></tr>
+<tr><td><code>verify</code>, <code>max_verify_rounds</code>, <code>verify_pitches</code>, <code>verify_effort</code>, <code>escalate_to_block</code></td><td class="d">Re-render and re-detect after anonymizing, from every detected yaw at each pitch in <code>verify_pitches</code> and from a grid around the face set by <code>verify_effort</code> (<code>"fast"</code>: none, <code>"balanced"</code>: 3×3, <code>"thorough"</code>: 5×5; speed vs. how many angles are attacked); blur modes escalate σ×1.6 per round, then an opaque fill unless disabled.</td></tr>
+<tr><td><code>brain_guard</code>, <code>brain_guard_mm</code></td><td class="d">Opt-in: never modify the brain (extracted from the input) or anything within <code>brain_guard_mm</code> of it. Costs ~3 s and ~3 GB per volume.</td></tr>
+<tr><td><code>brain_check</code></td><td class="d">Also report brain voxels modified and the clearance (<code>report["brain"]</code>).</td></tr>
+<tr><td><code>partial_face</code></td><td class="d">Opt-in: also handle faces cut by the field of view (an axial slab ending at the nose), which are refused otherwise.</td></tr>
+<tr><td><code>auto_threshold</code></td><td class="d">Opt-in: noisy, dim scans (e.g. infants) are retried at higher surface thresholds when no face is found.</td></tr>
+<tr><td><code>threshold_frac</code>, <code>threshold</code></td><td class="d">Skin surface threshold: fraction of the 99th percentile, or an absolute value. CT is detected automatically (−400 HU).</td></tr>
+<tr><td><code>return_mask</code></td><td class="d">Add the uint8 <code>mask</code> to the report.</td></tr>
+<tr><td><code>**deface_kwargs</code></td><td class="d"><code>ear_mode</code> and geometry overrides from the <a href="#params">parameter table</a>, e.g. <code>skin_depth_mm=3.5</code>, or the opt-ins <code>level_face=True</code> and <code>spare_air=True</code>. Unknown names raise <code>ValueError</code>.</td></tr>
+</table>
+<h4>Raises</h4><p><code>RuntimeError</code> when no validated face is found; the volume is then untouched.</p>
+</div></div>
+
+<div class="api" id="py-anonymization_mask"><code class="sig">radveil.<span class="name">anonymization_mask</span>(vol, mode="blur", region="face", mask_path=None,
+    yaws=(-20.0, 0.0, 20.0), pitch=0.0, size=512, detector="mediapipe",
+    predictor_path=None, brain_check=False, brain_guard=False,
+    brain_guard_mm=3.0, threshold_frac=0.14, threshold=None,
+    detector_upsample=1, **deface_kwargs) -&gt; dict</code><div class="body">
+<span class="kind">escape hatch</span>
+<p>The region <code>deface_volume</code> would anonymize, as <code>report["mask"]</code> (uint8, the volume's grid,
+1 = would be rewritten), <strong>without modifying the volume and without verification</strong>. <code>vol</code> is
+a <code>Volume</code> or a path; <code>mask_path</code> saves the mask as NIfTI with the volume's affine. See the
+<a href="#g-region">guide</a>.</p>
+</div></div>
+
+<div class="api" id="py-deface_batch"><code class="sig">radveil.<span class="name">deface_batch</span>(inputs, output_dir=None, outputs=None, mode="blur",
+                     workers=None, executor="threads", **kwargs) -&gt; list[dict]</code><div class="body">
+<span class="kind">function</span>
+<p>Anonymize many files concurrently. <code>inputs</code> is a list of paths or a glob pattern; outputs are
+<code>outputs</code> or <code>output_dir/&lt;name&gt;_defaced.nii.gz</code>. Returns one report per input in order; a
+refused or failed input gets <code>{"input", "output", "error"}</code> instead of raising. <code>**kwargs</code> go to
+<a href="#py-deface_auto"><code>deface_auto</code></a>. <code>workers</code> defaults to
+<code>min(cpu_count, 32, len(inputs))</code>. <code>executor="threads"</code> (default) runs them in this process (the
+Rust core releases the GIL; no <code>__main__</code> guard needed); <code>executor="processes"</code> uses spawned worker
+processes, so call it under <code>if __name__ == "__main__":</code>. Each concurrent volume needs roughly 4–5× its
+voxel data in memory; with <code>brain_guard</code> or <code>brain_check</code> add ~3 GB per worker.</p>
+</div></div>
+
+<div class="api" id="py-deskull"><code class="sig">radveil.<span class="name">deskull</span>(input_path, output_path=None, mask_path=None, gzip_level=1,
+                **kwargs) -&gt; dict</code><div class="body">
+<span class="kind">function</span>
+<p>Brain extraction (skull stripping). Writes the stripped volume and/or the uint8 brain mask. Keyword arguments go to
+<a href="#py-Volume"><code>Volume.deskull</code></a>: <code>method</code> (<code>"synthstrip"</code> default,
+<code>"classical"</code>), <code>modality</code> (<code>"auto"</code>, <code>"mri"</code>, <code>"ct"</code>),
+<code>fill</code>, <code>low_memory</code>; classical only: <code>frac</code>, <code>robust</code>, <code>face</code>,
+<code>detector</code>. Returns <code>method</code>, <code>brain_volume_ml</code>, <code>brain_voxels</code>,
+<code>centroid_world</code>, <code>fill</code>, <code>passes</code>, <code>face_prior</code>.</p>
+</div></div>
+
+<div class="api" id="py-detect_landmarks"><code class="sig">radveil.<span class="name">detect_landmarks</span>(rgb, predictor_path=None, upsample=1, try_rotations=False,
+                         detector="mediapipe") -&gt; ndarray | None</code><div class="body">
+<span class="kind">function</span>
+<p>Detect a face on an RGB image (for example <code>view["rgb"]</code> from <code>Volume.render</code>) and return a
+(68, 2) array of pixel coordinates in the standard 68-point (iBUG) order, or <code>None</code>. <code>try_rotations</code>
+also searches the image rotated by 90/180/270°; coordinates stay in the original frame. With
+<code>detector="dlib"</code> and the default 5-point model, the 68 slots are filled from eyes and nose base, the
+mouth is inferred and the jaw slots are left out.</p>
+</div></div>
+
+<div class="api" id="py-lift_landmarks"><code class="sig">radveil.<span class="name">lift_landmarks</span>(views, landmarks_2d) -&gt; list</code><div class="body">
+<span class="kind">function</span>
+<p>Lift per-view 2D landmarks to 3D through each view's position map and combine them (coordinate-wise median). Returns
+68 items, each <code>(x, y, z)</code> in RAS+ mm or <code>None</code>, ready for <code>Volume.deface</code>.</p>
+</div></div>
+
+<div class="api" id="py-fetch_predictor"><code class="sig">radveil.<span class="name">fetch_predictor</span>(dest="shape_predictor_5_face_landmarks.dat") -&gt; str</code><div class="body">
+<span class="kind">function</span>
+<p>Only for the dlib detector: download dlib's CC0-licensed 5-point landmark model (~9 MB) over HTTPS and verify
+pinned SHA-256 checksums. An existing <code>dest</code> is accepted only if its checksum matches. The dlib detector
+uses this file (or <code>predictor_path</code> / <code>RADVEIL_SHAPE_PREDICTOR</code>); a 68-point model is used only
+when passed explicitly, and warns that its training data excludes commercial use.</p>
+</div></div>
+
+<div class="api" id="py-Volume"><code class="sig">class radveil.<span class="name">Volume</span>(path)</code><div class="body">
+<span class="kind">class</span>
+<p>A loaded volume. <code>Volume(path)</code> reads <code>.nii</code>/<code>.nii.gz</code>;
+<code>Volume.from_array(data, affine)</code> wraps a float32 (nx, ny, nz) array and a 4×4 voxel→RAS+ affine;
+<code>Volume.from_bytes(data)</code> parses <code>.nii</code>/<code>.nii.gz</code> content (an upload, an object-store
+blob) with no temporary file.</p>
+<table>
+<tr><th>Member</th><th>Description</th></tr>
+<tr><td><code>shape</code>, <code>spacing</code>, <code>orientation</code>, <code>affine</code></td><td class="d">Properties: voxel dimensions, mm per voxel, axis codes such as <code>"LPS"</code>, the 4×4 affine.</td></tr>
+<tr><td><code>data()</code></td><td class="d">A float32 copy of the (scaled) voxel data.</td></tr>
+<tr><td><code>percentile(pct)</code></td><td class="d">Approximate intensity percentile.</td></tr>
+<tr><td><code>render(yaw_deg=0.0, pitch_deg=0.0, size=512, threshold_frac=0.14, threshold=None, step_mm=0.0)</code></td><td class="d">One surface view: <code>rgb</code> (h, w, 3) uint8, <code>pos</code> (h, w, 3) world positions (NaN = miss), <code>hit</code>, <code>threshold</code>, <code>pixel_mm</code>.</td></tr>
+<tr><td><code>deface(points, mode="blur", region="face", ear_mode=None, …, return_mask=False)</code></td><td class="d">Anonymize from 68 world-space landmarks (no detection, no verification). Takes every <a href="#params">geometry parameter</a>.</td></tr>
+<tr><td><code>deface_auto(detector=None, deface=None, yaws=[-20, 0, 20], pitch=0.0, size=512, threshold_frac=0.14, threshold=None, verify=True, max_verify_rounds=3, escalate_to_block=True, return_mask=False, brain_check=False, verify_pitches=[0, -15], brain_guard=False, brain_guard_mm=3.0)</code></td><td class="d">The low-level pipeline; <code>deface</code> is a dict of <code>deface()</code> keywords. Prefer <code>radveil.deface_volume</code>.</td></tr>
+<tr><td><code>anonymization_mask(detector=None, deface=None, …, brain_check=False, brain_guard=False, brain_guard_mm=3.0)</code></td><td class="d">The low-level escape hatch; prefer <code>radveil.anonymization_mask</code>.</td></tr>
+<tr><td><code>deskull(method="synthstrip", modality="auto", frac=0.5, fill=None, robust=True, face=False, detector=None, strip=True, low_memory=False)</code></td><td class="d">Brain extraction; returns the report plus <code>mask</code>. With <code>strip</code> the volume is modified in place.</td></tr>
+<tr><td><code>save(path, gzip_level=1)</code></td><td class="d">Write with the original header, datatype and scaling. Voxels outside the mask are bit-exact.</td></tr>
+<tr><td><code>to_bytes(gzip_level=1)</code></td><td class="d">The same NIfTI file as <code>bytes</code>; <code>gzip_level=None</code> gives plain <code>.nii</code>.</td></tr>
+</table>
+</div></div>
+
+<h3 id="py-report">Report dictionary<a class="anchor" href="#py-report">#</a></h3>
+<p>The same keys come back from every pipeline call (Rust: <code>AutoReport</code> / <code>DefaceReport</code>).</p>
+<div class="tablewrap"><table>
+<tr><th>Key</th><th>Meaning</th></tr>
+<tr><td><code>voxels_changed</code> · <code>voxels_total</code></td><td class="d">Voxels rewritten (or, for <code>anonymization_mask</code>, that would be) and in the volume.</td></tr>
+<tr><td><code>mode</code> · <code>ear_mode</code> · <code>region</code></td><td class="d">As requested; <code>ear_mode</code> is the effective ear mode (= <code>mode</code> unless set).</td></tr>
+<tr><td><code>views_detected</code> · <code>views</code> · <code>orientation</code> · <code>orientation_sweep</code></td><td class="d">Where the face was found: validated views (yaw, pitch, score, landmarks), stored orientation, whether the orientation sweep was needed.</td></tr>
+<tr><td><code>landmarks_3d</code></td><td class="d">68 lifted landmarks, RAS+ mm (reuse them on co-registered series).</td></tr>
+<tr><td><code>verify_rounds</code> · <code>residual_detections</code> · <code>escalated_to_block</code> · <code>final_blur_sigma_mm</code></td><td class="d">Verification outcome; absent when verification did not run.</td></tr>
+<tr><td><code>rois</code></td><td class="d">Per region: <code>label</code>, hull bounds <code>u_mm</code>/<code>v_mm</code>/<code>w_mm</code> in the face frame, <code>voxels</code>; ears add <code>detected</code> and <code>protrusion_mm</code>.</td></tr>
+<tr><td><code>eye_dist_mm</code> · <code>eye_bias_mm</code> · <code>nose_tip</code></td><td class="d">Face geometry the region was scaled from.</td></tr>
+<tr><td><code>blur_sigma_mm</code> · <code>skin_depth_mm</code> · <code>depth_behind_mm</code></td><td class="d">Resolved (auto-scaled) values.</td></tr>
+<tr><td><code>face_seen_through_air</code></td><td class="d">Whether the face surface was seen through air inside the scan.</td></tr>
+<tr><td><code>brain</code></td><td class="d">With <code>brain_check</code>: <code>voxels_modified</code> (0 = untouched), <code>brain_volume_ml</code>, <code>margin_mm</code>.</td></tr>
+<tr><td><code>protected_voxels_spared</code></td><td class="d">With the brain guard: region voxels left untouched because they are within the guard margin of the brain.</td></tr>
+<tr><td><code>air_voxels_spared</code></td><td class="d">With <code>spare_air</code>: first-round region voxels left as they were because they were air and stayed air, or lay outside the shell around the head.</td></tr>
+<tr><td><code>mask</code></td><td class="d">uint8 array, when requested (always for <code>anonymization_mask</code>).</td></tr>
+<tr><td><code>detector</code> · <code>fallback_used</code></td><td class="d"><code>"mediapipe"</code>, <code>"dlib"</code> or <code>"custom"</code>: the detector that found the face; whether it was <code>fallback_detector</code> (<code>deface_volume</code>/<code>deface_auto</code>).</td></tr>
+<tr><td><code>landmark_model_points</code> · <code>mouth_landmark_inferred</code></td><td class="d">dlib only: 5 or 68, and whether the mouth was inferred (5-point model).</td></tr>
+</table></div>
+</section>
+
+<!-- ============================================================ RUST -->
+<section class="part" id="ref-rust">
+<div class="eyebrow">Reference</div>
+<h2>Rust</h2>
+
+<h3 id="rs-crate">Crate &amp; features<a class="anchor" href="#rs-crate">#</a></h3>
+<p><code>radveil-core</code> is the engine behind every interface. Pure Rust, CPU-only, MSRV 1.98. Pipeline functions
+return <code>Result&lt;_, String&gt;</code> (a refusal or error message); file I/O returns <code>VolumeError</code>.
+Both convert into <code>Box&lt;dyn Error&gt;</code>, so <code>?</code> works in <code>main</code>.</p>
+<div class="tablewrap"><table>
+<tr><th>Feature</th><th>Default</th><th>Adds</th></tr>
+<tr><td><code>detector</code></td><td>on</td><td class="d"><code>MediaPipeDetector</code>: BlazeFace + Face Mesh v2, embedded, run by <code>tract</code>.</td></tr>
+<tr><td><code>synthstrip</code></td><td>on</td><td class="d">SynthStrip brain extraction (embedded weights), needed for <code>brain_check</code>.</td></tr>
+<tr><td><code>rvbrain</code></td><td>on</td><td class="d">Engine for RadVeil's own smaller brain network, loaded from a <code>.rvb</code> file (no weights ship yet).</td></tr>
+</table></div>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="toml"><code>[dependencies]
+radveil-core = &quot;0.1&quot;
+# only rendering + anonymization with your own landmarks, no embedded models:
+# radveil-core = { version = &quot;0.1&quot;, default-features = false }</code></pre></div>
+
+<div class="api" id="rs-Volume"><code class="sig">pub struct <span class="name">Volume</span> { pub data: Array3&lt;f32&gt;, pub affine: Mat4, pub spacing: [f64; 3], pub header: NiftiHeader, … }</code><div class="body">
+<span class="kind">struct</span>
+<table>
+<tr><td><code>Volume::load(path) -&gt; Result&lt;Volume, VolumeError&gt;</code></td><td class="d">Read <code>.nii</code>/<code>.nii.gz</code>; <code>data</code> holds scaled intensities.</td></tr>
+<tr><td><code>Volume::from_array(data: Array3&lt;f32&gt;, affine: Mat4) -&gt; Volume</code></td><td class="d">Wrap an array and a voxel→RAS+ affine (<code>Mat4 = [[f64; 4]; 4]</code>, row-major).</td></tr>
+<tr><td><code>Volume::from_bytes(bytes: &amp;[u8]) -&gt; Result&lt;Volume, VolumeError&gt;</code> · <code>to_bytes(gzip_level: Option&lt;u32&gt;)</code></td><td class="d">Parse <code>.nii</code>/<code>.nii.gz</code> content and encode it back (<code>None</code> = uncompressed), with no file system.</td></tr>
+<tr><td><code>shape() -&gt; [usize; 3]</code> · <code>orientation() -&gt; String</code> · <code>percentile(pct: f64) -&gt; f32</code></td><td class="d">Geometry and intensity helpers.</td></tr>
+<tr><td><code>save(path)</code> · <code>save_with_compression(path, gzip_level: u32)</code></td><td class="d">Write with the original header, datatype and scaling.</td></tr>
+</table>
+</div></div>
+
+<div class="api" id="rs-deface_auto"><code class="sig">pub fn <span class="name">deface_auto</span>(vol: &amp;mut Volume, det: &amp;mut dyn FaceDetector, params: &amp;AutoParams)
+    -&gt; Result&lt;AutoReport, String&gt;</code><div class="body">
+<span class="kind">function</span>
+<p>The full pipeline, modifying <code>vol</code> in place. On <code>Err</code> the volume is untouched. Use
+<code>&amp;mut MediaPipeDetector::default()</code> for the built-in detector.</p>
+</div></div>
+
+<div class="api" id="rs-anonymization_mask"><code class="sig">pub fn <span class="name">anonymization_mask</span>(vol: &amp;Volume, det: &amp;mut dyn FaceDetector, params: &amp;AutoParams)
+    -&gt; Result&lt;AutoReport, String&gt;</code><div class="body">
+<span class="kind">escape hatch</span>
+<p>Detection, validation, refusals and (with <code>brain_check</code>) the brain check, then stop:
+<code>report.mask</code> is always <code>Some</code>, verification fields are <code>None</code>, and the volume is
+borrowed immutably. See the <a href="#g-region">guide</a>.</p>
+</div></div>
+
+<div class="api" id="rs-AutoParams"><code class="sig">pub struct <span class="name">AutoParams</span> { … }   // Default = the Python defaults
+pub struct <span class="name">AutoReport</span> { … }   // Serialize</code><div class="body">
+<span class="kind">structs</span>
+<table>
+<tr><th><code>AutoParams</code> field</th><th>Default</th><th></th></tr>
+<tr><td><code>deface: DefaceParams</code></td><td>auto</td><td class="d">Mode, region and geometry (<a href="#rs-deface">below</a>).</td></tr>
+<tr><td><code>yaws: Vec&lt;f64&gt;</code> · <code>pitch: f64</code> · <code>size: usize</code></td><td><code>[-20, 0, 20]</code> · 0 · 512</td><td class="d">Detection views.</td></tr>
+<tr><td><code>threshold_frac: f32</code> · <code>threshold: Option&lt;f32&gt;</code></td><td>0.14 · None</td><td class="d">Skin surface threshold.</td></tr>
+<tr><td><code>verify</code> · <code>max_verify_rounds</code> · <code>escalate_to_block</code></td><td>true · 3 · true</td><td class="d">Verification loop.</td></tr>
+<tr><td><code>verify_pitches: Vec&lt;f64&gt;</code></td><td><code>[0, -15]</code></td><td class="d">Pitches every detected view is also re-checked at during verification.</td></tr>
+<tr><td><code>verify_effort: VerifyEffort</code></td><td><code>Balanced</code></td><td class="d">Grid of extra verification views around the face: <code>Fast</code> (none), <code>Balanced</code> (3×3), <code>Thorough</code> (5×5). Implements <code>FromStr</code>.</td></tr>
+<tr><td><code>auto_threshold: bool</code></td><td>false</td><td class="d">Noisy, dim scans: retry at 0.3 and 0.45 × p99 when no face is found.</td></tr>
+<tr><td><code>partial_face: bool</code></td><td>false</td><td class="d">Faces cut by the field of view (an axial slab ending at the nose): pitched detection views, a frame from eyes and nose, <code>level_face</code> skin, and a wider verification grid.</td></tr>
+<tr><td><code>verify_with_builtin: bool</code></td><td>true</td><td class="d">Also verify with the built-in <code>MediaPipeDetector</code> (feature <code>detector</code>), whatever <code>det</code> is.</td></tr>
+<tr><td><code>brain_guard: bool</code> · <code>brain_guard_mm: f64</code></td><td>false · 3.0</td><td class="d">Opt-in: never modify the extracted brain or anything within the margin (feature <code>synthstrip</code>).</td></tr>
+<tr><td><code>return_mask: bool</code> · <code>brain_check: bool</code></td><td>false · false</td><td class="d">Mask in the report; brain voxels modified and clearance in <code>report.brain</code>.</td></tr>
+</table>
+<p><code>AutoReport</code> carries <code>deface: DefaceReport</code>, <code>frame: FaceFrame</code>,
+<code>views_detected</code>, <code>orientation</code>, <code>orientation_sweep</code>, <code>landmarks_3d</code>,
+<code>views</code>, <code>verify_rounds</code>, <code>residual_detections</code>, <code>escalated_to_block</code>,
+<code>final_blur_sigma_mm</code>, <code>mask: Option&lt;Array3&lt;u8&gt;&gt;</code> and <code>brain:
+Option&lt;BrainCheck&gt;</code> (see the <a href="#py-report">report keys</a>).</p>
+</div></div>
+
+<div class="api" id="rs-plan"><code class="sig">pub fn <span class="name">plan</span>(volume: &amp;Volume, frame: &amp;FaceFrame, params: &amp;DefaceParams) -&gt; DefacePlan
+pub fn <span class="name">apply</span>(volume: &amp;mut Volume, frame: &amp;FaceFrame, plan: &amp;DefacePlan,
+             mode: DefaceMode, blur_sigma_mm: Option&lt;f64&gt;) -&gt; (DefaceReport, Array3&lt;u8&gt;)
+pub fn <span class="name">plan_mask</span>(volume: &amp;Volume, frame: &amp;FaceFrame, plan: &amp;DefacePlan,
+                 mode: DefaceMode) -&gt; (DefaceReport, Array3&lt;u8&gt;)</code><div class="body">
+<span class="kind">building blocks</span>
+<p><code>plan</code> measures the region on the <em>original</em> volume (skin surface, ears).
+<code>apply</code> rewrites it; re-applying a plan never reaches beyond its first mask, which is how verification
+escalates safely. <code>plan_mask</code> rasterizes it without touching the volume.
+<code>DefacePlan::face_only()</code> restricts it to the face; <code>face_seen_through_air()</code> returns
+<code>Some(false)</code> when the "face" lies on a field-of-view cut. <code>with_protected(mask)</code> adds voxels that
+must never be rewritten (the brain guard uses it); <code>DefaceReport::protected_voxels_spared</code> counts them.</p>
+</div></div>
+
+<div class="api" id="rs-deface"><code class="sig">pub fn <span class="name">deface</span>(volume: &amp;mut Volume, frame: &amp;FaceFrame, params: &amp;DefaceParams)
+    -&gt; (DefaceReport, Array3&lt;u8&gt;)
+pub fn <span class="name">face_frame_from_landmarks</span>(lm: &amp;[Option&lt;Vec3&gt;]) -&gt; Result&lt;FaceFrame, String&gt;</code><div class="body">
+<span class="kind">function</span>
+<p>Anonymize from your own 68 world-space landmarks (<code>plan</code> + <code>apply</code>; no detection, no
+verification). <code>DefaceParams</code> derives <code>Default</code>: <code>mode: DefaceMode</code>
+(<code>Blur</code>, <code>Adaptive</code>, <code>Cut</code>, <code>Block</code>), <code>ear_mode:
+Option&lt;DefaceMode&gt;</code> (<code>None</code> = same as <code>mode</code>), <code>region: Region</code>
+(<code>Face</code>, <code>Ears</code>, <code>FaceAndEars</code>), and every geometry field of the
+<a href="#params">parameter table</a> as <code>Option&lt;f64&gt;</code> (<code>None</code> = auto). The opt-ins <code>spare_air</code> and <code>level_face</code> are <code>bool</code> (default <code>false</code>). Both enums
+implement <code>FromStr</code> (<code>"adaptive".parse()</code>, <code>"face+ears".parse()</code>).</p>
+</div></div>
+
+<div class="api" id="rs-FaceDetector"><code class="sig">pub trait <span class="name">FaceDetector</span> {
+    fn detect(&amp;mut self, rgb: &amp;[u8], w: usize, h: usize, try_rotations: bool)
+        -&gt; Result&lt;Option&lt;Detection&gt;, String&gt;;
+}
+pub struct <span class="name">Detection</span> { pub landmarks: Vec&lt;[f64; 2]&gt;, pub score: f64 }</code><div class="body">
+<span class="kind">trait</span>
+<p>Plug in any 2D model: return the 68 landmarks in the standard 68-point (iBUG) order in pixel coordinates of the RGB8 image, or
+<code>None</code>. <code>MediaPipeDetector</code> implements it (<code>MediaPipeDetector::default()</code>, or
+<code>::new(DetectorParams { min_score, min_presence })</code>). Example in the <a href="#g-detector">guide</a>.</p>
+</div></div>
+
+<div class="api" id="rs-deskull"><code class="sig">pub fn <span class="name">brain_mask</span>(volume: &amp;Volume, params: &amp;DeskullParams)
+    -&gt; Result&lt;(Array3&lt;u8&gt;, DeskullReport), String&gt;
+pub fn <span class="name">deskull</span>(volume: &amp;mut Volume, params: &amp;DeskullParams)
+    -&gt; Result&lt;(Array3&lt;u8&gt;, DeskullReport), String&gt;</code><div class="body">
+<span class="kind">function</span>
+<p>Brain extraction. <code>deskull</code> also strips the volume in place. <code>DeskullParams</code> derives
+<code>Default</code> (SynthStrip, modality auto); <code>method: Method</code> is <code>SynthStrip</code>,
+<code>RvBrain</code> or <code>Classical</code>, <code>modality: Modality</code> is <code>Auto</code>,
+<code>Mri</code> or <code>Ct</code>. Custom extractors implement <code>BrainExtractor</code> and run through
+<code>brain_mask_with</code>.</p>
+</div></div>
+
+<div class="api" id="rs-render"><code class="sig">pub fn <span class="name">render_view</span>(volume: &amp;Volume, yaw_deg: f64, pitch_deg: f64, params: &amp;RenderParams)
+    -&gt; RenderView
+pub fn <span class="name">locate_face</span>(vol: &amp;Volume, det: &amp;mut dyn FaceDetector, params: &amp;AutoParams)
+    -&gt; Result&lt;LocatedFace, String&gt;</code><div class="body">
+<span class="kind">function</span>
+<p><code>render_view</code> returns <code>rgb</code>, a per-pixel world position map (<code>pos</code>, NaN =
+miss), <code>hit</code> and the camera; <code>view.world_at(x, y, max_radius)</code> lifts a pixel to RAS+ mm.
+<code>RenderParams { size, threshold_frac, threshold_abs, step_mm }</code>. <code>locate_face</code> runs detection
+and validation only and returns the <code>FaceFrame</code>, 3D landmarks and the views used.</p>
+</div></div>
+</section>
+
+<!-- ============================================================ C -->
+<section class="part" id="ref-c">
+<div class="eyebrow">Reference</div>
+<h2>C / C++</h2>
+<p>A plain C ABI in <code>radveil.h</code>, usable from C, C++ and anything with a C FFI. The face detector is built in
+(<code>radveil_deface_auto</code>); hosts with their own detector pass landmarks to <code>radveil_deface</code>.</p>
+
+<h3 id="c-conventions">Conventions &amp; linking<a class="anchor" href="#c-conventions">#</a></h3>
+<ul>
+  <li><strong>Errors:</strong> <code>int32_t</code> functions return 0 on success and −1 on error or refusal;
+  <code>radveil_last_error()</code> gives the message (thread-local; it holds the most recent failure on that thread).</li>
+  <li><strong>Arrays:</strong> C order <code>(nx, ny, nz)</code>, <code>k</code> fastest. Masks are
+  <code>uint8_t[nx*ny*nz]</code>, caller-allocated. World coordinates are RAS+ mm.</li>
+  <li><strong>Ownership:</strong> every <code>RadveilVolume*</code> from <code>radveil_volume_load</code> or
+  <code>radveil_volume_from_array</code> is freed with <code>radveil_volume_free</code>. Optional pointers may be
+  <code>NULL</code>.</li>
+  <li><strong>Parameters:</strong> call <code>radveil_deface_params_init</code> before overriding fields: a
+  zero-initialised struct means 0 mm, not "auto".</li>
+</ul>
+<div class="code"><div class="code-title">LINKING.txt (from the release archive)</div><button class="copy" type="button" aria-label="Copy code">Copy</button><pre data-lang="bash"><code>cc app.c <span class="t-flag">-Iinclude</span> <span class="t-flag">-Llib</span> <span class="t-flag">-lradveil</span> <span class="t-flag">-lm</span> <span class="t-flag">-Wl</span>,-rpath,<span class="t-str">&#x27;$ORIGIN/../lib&#x27;</span>        <span class="t-com"># Linux</span>
+cc app.c <span class="t-flag">-Iinclude</span> <span class="t-flag">-Llib</span> <span class="t-flag">-lradveil</span> <span class="t-flag">-Wl</span>,-rpath,@executable_path/../lib     <span class="t-com"># macOS</span>
+<span class="t-com"># Windows: link lib/radveil.dll.lib and ship bin/radveil.dll, or link lib/radveil.lib statically</span></code></pre></div>
+
+<div class="api" id="c-volume"><code class="sig">RadveilVolume *<span class="name">radveil_volume_load</span>(const char *path);
+RadveilVolume *<span class="name">radveil_volume_from_array</span>(size_t nx, size_t ny, size_t nz,
+                                         const float *data, const double *affine);
+int32_t <span class="name">radveil_volume_save</span>(const RadveilVolume *vol, const char *path, uint32_t gzip_level);
+void    <span class="name">radveil_volume_free</span>(RadveilVolume *vol);
+void    <span class="name">radveil_volume_shape</span>(const RadveilVolume *vol, uint64_t dims[3]);
+void    <span class="name">radveil_volume_orientation</span>(const RadveilVolume *vol, char *buf, size_t len);
+const char *<span class="name">radveil_version</span>(void);
+const char *<span class="name">radveil_last_error</span>(void);</code><div class="body">
+<span class="kind">lifecycle</span>
+<p><code>load</code> and <code>from_array</code> return <code>NULL</code> on error. <code>from_array</code> copies
+<code>data</code> (nx·ny·nz floats) and a row-major 4×4 voxel→RAS+ <code>affine</code>. <code>save</code> keeps the
+header, datatype and scaling; <code>gzip_level</code> 0–9 (1 = fast default).</p>
+</div></div>
+
+<div class="api" id="c-deface_auto"><code class="sig">int32_t <span class="name">radveil_deface_auto</span>(RadveilVolume *vol, const char *mode, const char *region,
+                            const RadveilDefaceParams *params,
+                            const RadveilEarParams *ear_params,
+                            uint8_t verify, uint8_t brain,
+                            uint8_t *mask_out, RadveilAutoReport *report);</code><div class="body">
+<span class="kind">pipeline</span>
+<p>Detect, validate, anonymize and verify, in place. <code>verify</code>: <code>RADVEIL_VERIFY_OFF</code> (0),
+<code>RADVEIL_VERIFY_ON</code> (1, default effort: the detection views plus a 3×3 grid around the face),
+<code>RADVEIL_VERIFY_FAST</code> (detection views only) or <code>RADVEIL_VERIFY_THOROUGH</code> (5×5 grid). <code>mode</code>:
+<code>"blur"</code>, <code>"adaptive"</code>, <code>"cut"</code>, <code>"block"</code>; <code>region</code>:
+<code>"face"</code>, <code>"ears"</code>, <code>"face+ears"</code>. Returns −1 and leaves the volume untouched when no
+validated face is found. <code>params</code>, <code>ear_params</code>, <code>mask_out</code> and <code>report</code>
+may be <code>NULL</code>. <code>brain</code> takes the flags <code>RADVEIL_BRAIN_CHECK</code> (report brain voxels
+modified) and <code>RADVEIL_BRAIN_GUARD</code> (never modify anything within 3 mm of the brain; the report's
+<code>brain_guard_spared</code> counts the region voxels it kept), combined with <code>|</code>, or 0. Example: the
+<a href="#quickstart">quick start</a>.</p>
+</div></div>
+
+<div class="api" id="c-anonymization_mask"><code class="sig">int32_t <span class="name">radveil_anonymization_mask</span>(const RadveilVolume *vol, const char *mode,
+                                   const char *region, const RadveilDefaceParams *params,
+                                   const RadveilEarParams *ear_params, uint8_t brain,
+                                   uint8_t *mask_out, RadveilAutoReport *report);</code><div class="body">
+<span class="kind">escape hatch</span>
+<p>The region <code>radveil_deface_auto</code> would rewrite, into <code>mask_out</code> (required), without modifying
+the volume and without verification; <code>report-&gt;base.voxels_changed</code> counts the voxels that would change
+and the verification fields are −1. C++ example in the <a href="#g-region">guide</a>.</p>
+</div></div>
+
+<div class="api" id="c-deface"><code class="sig">int32_t <span class="name">radveil_deface</span>(RadveilVolume *vol, const double *points, const char *mode,
+                       const RadveilDefaceParams *params, uint8_t *mask_out,
+                       RadveilReport *report);
+int32_t <span class="name">radveil_deface_region</span>(RadveilVolume *vol, const double *points, const char *mode,
+                              const char *region, const RadveilDefaceParams *params,
+                              const RadveilEarParams *ear_params, uint8_t *mask_out,
+                              RadveilReport *report);
+int32_t <span class="name">radveil_deface_regions</span>(RadveilVolume *vol, const double *points, const char *mode,
+                               const char *ear_mode, const char *region,
+                               const RadveilDefaceParams *params,
+                               const RadveilEarParams *ear_params, uint8_t *mask_out,
+                               RadveilReport *report);</code><div class="body">
+<span class="kind">your landmarks</span>
+<p>Anonymize in place from <code>points</code>: 68×3 doubles in the standard 68-point (iBUG) landmark order, world
+RAS+ mm, NaN for a missing landmark. No detection and no verification. <code>_region</code> adds the region selector
+and ear parameters; <code>_regions</code> also takes <code>ear_mode</code>, a separate mode for the ears
+(<code>NULL</code> = same as <code>mode</code>), e.g. <code>"adaptive"</code> face and <code>"cut"</code> ears.
+Example in the <a href="#g-detector">guide</a>.</p>
+</div></div>
+
+<div class="api" id="c-params"><code class="sig">typedef struct { double width_factor, above_eyes_mm, below_chin_mm, depth_behind_mm,
+                 depth_front_mm, blur_sigma_mm, adaptive_factor, skin_depth_mm;
+                 uint32_t options; /* RADVEIL_SPARE_AIR | _LEVEL_FACE | _PARTIAL_FACE | _AUTO_THRESHOLD */ } <span class="name">RadveilDefaceParams</span>;
+typedef struct { double inner_mm, outer_mm, guard_mm, down_mm, back_mm,
+                 height_mm, depth_mm; } <span class="name">RadveilEarParams</span>;
+void <span class="name">radveil_deface_params_init</span>(RadveilDefaceParams *params);
+void <span class="name">radveil_ear_params_init</span>(RadveilEarParams *params);</code><div class="body">
+<span class="kind">structs</span>
+<p>A negative or NaN field means auto (scaled from the inter-eye distance). The <code>_init</code> functions set every
+field to auto; override what you need afterwards. Meanings are in the <a href="#params">parameter table</a>.</p>
+</div></div>
+
+<div class="api" id="c-reports"><code class="sig">typedef struct { uint64_t voxels_changed, voxels_total; double eye_dist_mm, blur_sigma_mm; } <span class="name">RadveilReport</span>;
+typedef struct {
+    RadveilReport base;
+    uint32_t views_detected;  uint8_t orientation_sweep, escalated_to_block;
+    int32_t  verify_rounds;       /* -1 = not verified */
+    int32_t  residual_detections; /* -1 = n/a */
+    int64_t  brain_voxels_modified; /* 0 = untouched, -1 = check not run */
+    double   brain_margin_mm;       /* NaN if n/a */
+    int64_t  brain_guard_spared;    /* region voxels kept by the brain guard; -1 if off */
+} <span class="name">RadveilAutoReport</span>;</code><div class="body">
+<span class="kind">structs</span>
+<p>Filled on success when the pointer is not <code>NULL</code>.</p>
+</div></div>
+
+<div class="api" id="c-render"><code class="sig">int32_t <span class="name">radveil_render</span>(const RadveilVolume *vol, double yaw_deg, double pitch_deg,
+                       uint32_t size, float threshold_frac, float threshold_abs,
+                       uint8_t *rgb, float *pos, uint8_t *flags);</code><div class="body">
+<span class="kind">function</span>
+<p>One orthographic surface view. Outputs are caller-allocated and optional: <code>rgb</code> size·size·3 bytes,
+<code>pos</code> size·size·3 floats (world position per pixel, NaN = miss), <code>flags</code> size·size bytes
+(0 miss, 1 hit, 2 hit on the volume boundary). <code>threshold_abs = NAN</code> selects the automatic threshold.
+Lift your own 2D detections through <code>pos</code>.</p>
+</div></div>
+
+<div class="api" id="c-deskull"><code class="sig">int32_t <span class="name">radveil_deskull</span>(RadveilVolume *vol, const char *method, const char *modality,
+                        double frac, uint8_t use_face, uint8_t strip, uint8_t low_memory,
+                        float fill, uint8_t *mask_out, RadveilDeskullReport *report);</code><div class="body">
+<span class="kind">function</span>
+<p>Brain extraction. <code>method</code>: <code>"synthstrip"</code> or <code>"classical"</code>; <code>modality</code>:
+<code>"auto"</code>, <code>"mri"</code>, <code>"ct"</code>. <code>strip = 1</code> sets non-brain voxels to
+<code>fill</code> in place (NaN = 0 for MRI, air for CT). <code>mask_out</code> (1 = brain) and <code>report</code>
+may be <code>NULL</code>.</p>
+</div></div>
+</section>
+
+<!-- ============================================================ CLI -->
+<section class="part" id="ref-cli">
+<div class="eyebrow">Reference</div>
+<h2>Command line</h2>
+<p>One static binary, <code>radveil</code>. <code>radveil &lt;command&gt; --help</code> lists every option.</p>
+<div class="tablewrap"><table>
+<tr><th>Command</th><th>Purpose</th></tr>
+<tr><td><code>radveil auto IN OUT</code></td><td class="d">The full pipeline with the built-in detector. Options: <code>--mode</code>, <code>--region</code>, <code>--ear-mode</code>, <code>--mask-out</code>, <code>--report</code> (JSON, <code>-</code> = stdout), <code>--brain-guard</code>, <code>--brain-guard-mm</code>, <code>--brain-check</code>, <code>--no-verify</code>, <code>--skin-depth</code>, <code>--depth-behind</code>, <code>--blur-sigma</code>, <code>--no-eye-anchor</code>, <code>--yaw</code>, <code>--size</code>, <code>--threshold-frac</code>, <code>--threshold</code>, <code>--gzip-level</code>.</td></tr>
+<tr><td><code>radveil deface IN OUT</code></td><td class="d">Anonymize from given landmarks: <code>--landmarks3d</code> (<code>{"points": [[x, y, z] | null, …68]}</code>, RAS+ mm) or <code>--landmarks</code> (2D per view). Same <code>--mode</code>, <code>--region</code>, <code>--ear-mode</code> and geometry options; <code>--qa</code> writes renders.</td></tr>
+<tr><td><code>radveil deskull IN</code></td><td class="d">Brain extraction: <code>-o</code> stripped volume, <code>--mask-out</code>, <code>--method synthstrip|classical|rvbrain</code>, <code>--modality</code>, <code>--fill</code>, <code>--low-memory</code>, <code>--report</code>.</td></tr>
+<tr><td><code>radveil render IN</code></td><td class="d">PNG views plus per-view camera JSON: <code>-o</code>, <code>--yaw=-20,0,20</code> (use <code>=</code> for negative angles), <code>--pitch</code>, <code>--size</code>.</td></tr>
+<tr><td><code>radveil info IN</code></td><td class="d">Shape, spacing, orientation, datatype and affine.</td></tr>
+<tr><td><code>radveil conform IN</code></td><td class="d">The grid a brain-extraction network is fed (for debugging and training data).</td></tr>
+</table></div>
+<p>The mask-only escape hatch is deliberately not a CLI command: the CLI always anonymizes.</p>
+<h3 id="cli-exit">Exit status<a class="anchor" href="#cli-exit">#</a></h3>
+<div class="tablewrap"><table>
+<tr><th>Status</th><th>Meaning</th></tr>
+<tr><td><code>0</code></td><td class="d">Success.</td></tr>
+<tr><td><code>1</code></td><td class="d">Error or refusal (no plausible face); nothing was written.</td></tr>
+<tr><td><code>3</code></td><td class="d"><code>--brain-check</code> found modified brain voxels. The output is still written, so a batch can stop on it.</td></tr>
+</table></div>
+</section>
+
+<!-- ============================================================ PARAMS -->
+<section class="part" id="params">
+<div class="eyebrow">All languages</div>
+<h2>Parameter table</h2>
+<p>Geometry parameters, all optional. <em>d</em> is the measured inter-eye distance (~60–70 mm in adults). Python uses
+the name as a keyword argument, Rust as a <code>DefaceParams</code> field (<code>Option&lt;f64&gt;</code>), C as a
+struct field.</p>
+<div class="tablewrap"><table>
+<tr><th>Name</th><th>Auto</th><th>C field</th><th>CLI</th><th>Meaning</th></tr>
+<tr><td><code>mode</code></td><td><code>blur</code></td><td>argument</td><td><code>--mode</code></td><td class="d"><code>blur</code>, <code>adaptive</code>, <code>cut</code>, <code>block</code></td></tr>
+<tr><td><code>region</code></td><td><code>face</code></td><td>argument</td><td><code>--region</code></td><td class="d"><code>face</code>, <code>ears</code>, <code>face+ears</code></td></tr>
+<tr><td><code>ear_mode</code></td><td>= <code>mode</code></td><td>argument of <code>radveil_deface_regions</code></td><td><code>--ear-mode</code></td><td class="d">Separate mode for the ear regions in the same pass. <code>cut</code> or <code>block</code> is recommended for ears: blur leaves 10–16% of the pinna surface in place.</td></tr>
+<tr><td><code>skin_depth_mm</code></td><td>0.07·d</td><td><code>skin_depth_mm</code></td><td><code>--skin-depth</code></td><td class="d">How deep below the measured skin the face region reaches. Nose and lips are removed down to the surrounding face level.</td></tr>
+<tr><td><code>depth_behind_mm</code></td><td>0.21·d</td><td><code>depth_behind_mm</code></td><td><code>--depth-behind</code></td><td class="d">Hull floor behind the eye-skin plane; the skin wall is never deeper.</td></tr>
+<tr><td><code>depth_front_mm</code></td><td>1.55·d</td><td><code>depth_front_mm</code></td><td>—</td><td class="d">How far in front of the eyes the region reaches (past the nose tip).</td></tr>
+<tr><td><code>level_face</code></td><td>off</td><td><code>options |= RADVEIL_LEVEL_FACE</code></td><td><code>--level-face</code></td><td class="d">Measure the face skin along the level head axes instead of the downward-tilted face frame, so the lower lip and chin are removed too (skin removed at lower-lip landmarks 41% → 78%, chin 12% → 70%).</td></tr>
+<tr><td><code>spare_air</code></td><td>off</td><td><code>options |= RADVEIL_SPARE_AIR</code></td><td><code>--spare-air</code></td><td class="d">Leave background air untouched: write only tissue, the skin edge and a smooth shell around the head (about half the changed volume). If the bounded fill still leaves a face, verification fills the whole region as without it.</td></tr>
+<tr><td><code>width_factor</code></td><td>1.05</td><td><code>width_factor</code></td><td>—</td><td class="d">Half-width of the region, × d.</td></tr>
+<tr><td><code>above_eyes_mm</code></td><td>0.60·d</td><td><code>above_eyes_mm</code></td><td>—</td><td class="d">Margin above the eye line (brows, forehead edge).</td></tr>
+<tr><td><code>below_chin_mm</code></td><td>0.43·d</td><td><code>below_chin_mm</code></td><td>—</td><td class="d">Margin below the chin.</td></tr>
+<tr><td><code>blur_sigma_mm</code></td><td>0.17·d</td><td><code>blur_sigma_mm</code></td><td><code>--blur-sigma</code></td><td class="d">Gaussian σ for <code>blur</code> and <code>adaptive</code>; verification escalates it.</td></tr>
+<tr><td><code>adaptive_factor</code></td><td>2.5</td><td><code>adaptive_factor</code></td><td>—</td><td class="d"><code>adaptive</code>: heavy-kernel σ as a multiple of the blur σ.</td></tr>
+<tr><td><code>eye_surface_anchor</code></td><td>true</td><td>always on</td><td><code>--no-eye-anchor</code></td><td class="d">Anchor the hull to the measured eye-skin surface (corrects thick-slice landmark bias).</td></tr>
+<tr><td><code>eye_bias_mm</code></td><td>measured</td><td>—</td><td>—</td><td class="d">Explicit anchor offset, to pin the hull across calls.</td></tr>
+<tr><td><code>ear_inner_mm</code></td><td>0.75·d</td><td><code>inner_mm</code></td><td>—</td><td class="d">Ears: absolute medial floor; the cut never reaches medial of this.</td></tr>
+<tr><td><code>ear_outer_mm</code></td><td>2.20·d</td><td><code>outer_mm</code></td><td>—</td><td class="d">Ears: lateral bound (past any protruding pinna).</td></tr>
+<tr><td><code>ear_guard_mm</code></td><td>0.05·d</td><td><code>guard_mm</code></td><td>—</td><td class="d">Ears: cut depth below the scalp under the pinna (0.75× on flat scalp); never past the skull.</td></tr>
+<tr><td><code>ear_down_mm</code> · <code>ear_back_mm</code></td><td>0.35·d · 1.50·d</td><td><code>down_mm</code> · <code>back_mm</code></td><td>—</td><td class="d">Ears: centre of the fallback box (used when no pinna is detected) below the eye line / behind the eye plane, in the ear frame.</td></tr>
+<tr><td><code>ear_height_mm</code> · <code>ear_depth_mm</code></td><td>2.30·d · 1.60·d</td><td><code>height_mm</code> · <code>depth_mm</code></td><td>—</td><td class="d">Ears: fallback box extents along v / w.</td></tr>
+</table></div>
+<p>Pipeline options (<code>yaws</code>, <code>pitch</code>, <code>size</code>, <code>threshold_frac</code>,
+<code>threshold</code>, <code>verify</code>, <code>max_verify_rounds</code>, <code>verify_pitches</code>, <code>verify_effort</code> (CLI <code>--verify-effort</code>), <code>partial_face</code> (CLI <code>--partial-face</code>: faces cut by the field of view, such as a slab ending at the nose), <code>auto_threshold</code> (CLI <code>--auto-threshold</code>: noisy, dim scans such as infants),
+<code>escalate_to_block</code>, <code>brain_guard</code>, <code>brain_guard_mm</code>, <code>brain_check</code>; Python
+also <code>detector</code>, <code>fallback_detector</code>, <code>fallback_brain_guard</code>) are in <a href="#py-deface_volume"><code>deface_volume</code></a> and
+<a href="#rs-AutoParams"><code>AutoParams</code></a>.</p>
+</section>
+
+<!-- ============================================================ ERRORS -->
+<section class="part" id="errors">
+<div class="eyebrow">All languages</div>
+<h2>Errors &amp; refusals</h2>
+<p>Python raises <code>RuntimeError</code>, Rust returns <code>Err(String)</code>, C returns −1 with the text in
+<code>radveil_last_error()</code>, and the CLI exits with status 1. In every case nothing was modified.</p>
+<div class="tablewrap"><table>
+<tr><th>Message begins with</th><th>What it means</th></tr>
+<tr><td><code>no plausible face in any rendered view</code></td><td class="d">No detector hit in any view, including the orientation sweep: not a head, an already-defaced scan, or a threshold that misses the skin (check a render).</td></tr>
+<tr><td><code>face candidates did not survive validation</code></td><td class="d">Detections did not agree in 3D across views; typical for already-anonymized scans.</td></tr>
+<tr><td><code>the detected face is not seen through air</code></td><td class="d">The "face" lies on a field-of-view cut (for example the bottom slice of an axial slab), not on skin.</td></tr>
+<tr><td><code>brain_check and brain_guard need the `synthstrip` feature</code></td><td class="d">Rust only: enable the default <code>synthstrip</code> feature, or set <code>brain_guard: false</code>.</td></tr>
+</table></div>
+</section>
+
+<footer>
+<p>RadVeil 0.1.0 · © 2026 Piotr Gródek and the RadVeil contributors · <a href="https://github.com/rAum/radveil/blob/main/LICENSE">Apache-2.0</a> ·
+<a href="https://github.com/rAum/radveil/blob/main/THIRD_PARTY_LICENSES.txt">Third-party licenses</a> · <a href="fonts/README.md">Font licenses</a></p>
+<p>Includes the MediaPipe BlazeFace and Face Mesh models by Google (Apache-2.0) and the SynthStrip weights by Hoopes et al. (MIT).
+Third-party names identify components only and do not imply endorsement.
+Images: 3D Slicer&rsquo;s public &ldquo;MRHead&rdquo; sample, donated by the person pictured for use without restriction (<code>tools/make_site_images.py</code>).</p>
+<p>RadVeil is a free, open-source project developed in the author's spare time. It is not affiliated with, sponsored or endorsed by,
+and does not represent any current or former employer of the author. Provided "as is", without warranty; not a medical device.</p>
+<p>This site sets no cookies, runs no analytics and loads nothing from third parties.</p>
+</footer>
+
+</div>
+</main>
+</div>
+
+<script>
+(function () {
+  // Theme toggle, shared with the home page; remembered in this browser only.
+  var root = document.documentElement;
+  document.getElementById("theme").addEventListener("click", function () {
+    var dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("radveil-theme", root.dataset.theme); } catch (e) {}
+  });
+})();
+(function () {
+  var KEY = "radveil-docs-lang";
+  var store = { get: function () { try { return localStorage.getItem(KEY); } catch (e) { return null; } },
+                set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) {} } };
+
+  // Language tabs, synced across the page and remembered per visitor.
+  function setLang(lang, remember) {
+    document.querySelectorAll(".tabs").forEach(function (t) {
+      var avail = Array.prototype.map.call(t.querySelectorAll(".tablist button"), function (b) { return b.dataset.lang; });
+      var pick = avail.indexOf(lang) >= 0 ? lang : avail[0];
+      t.querySelectorAll(".tablist button").forEach(function (b) {
+        b.setAttribute("aria-selected", b.dataset.lang === pick ? "true" : "false");
+        b.tabIndex = b.dataset.lang === pick ? 0 : -1;
+      });
+      t.querySelectorAll(".pane").forEach(function (p) { p.classList.toggle("on", p.dataset.lang === pick); });
+    });
+    document.querySelectorAll(".langswitch button").forEach(function (b) {
+      b.setAttribute("aria-pressed", b.dataset.lang === lang ? "true" : "false");
+    });
+    if (remember) store.set(lang);
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".tablist button, .langswitch button");
+    if (!b) return;
+    var top = b.getBoundingClientRect().top;
+    setLang(b.dataset.lang, true);
+    window.scrollBy(0, b.getBoundingClientRect().top - top); // keep the clicked tab in place
+  });
+  document.addEventListener("keydown", function (e) {
+    var b = e.target.closest && e.target.closest(".tablist button");
+    if (!b || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
+    var list = Array.prototype.slice.call(b.parentNode.children);
+    var n = list[(list.indexOf(b) + (e.key === "ArrowRight" ? 1 : list.length - 1)) % list.length];
+    setLang(n.dataset.lang, true); n.focus(); e.preventDefault();
+  });
+  setLang(store.get() || "py", false);
+
+  // Copy buttons.
+  document.querySelectorAll(".code .copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var text = btn.parentNode.querySelector("pre").innerText;
+      var done = function () { btn.textContent = "Copied"; btn.classList.add("done");
+        setTimeout(function () { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1400); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {});
+    });
+  });
+
+  // Filter the contents; "/" focuses the box.
+  var q = document.getElementById("q"), toc = document.getElementById("toc");
+  var group = "";
+  Array.prototype.forEach.call(toc.children, function (el) {
+    if (el.tagName === "H4") group = el.textContent; else if (el.tagName === "A") el.dataset.g = group;
+  });
+  q.addEventListener("input", function () {
+    var term = q.value.trim().toLowerCase(), any = false;
+    toc.querySelectorAll("a").forEach(function (a) {
+      var hit = !term || a.textContent.toLowerCase().indexOf(term) >= 0;
+      a.style.display = hit ? "" : "none"; any = any || hit;
+    });
+    toc.querySelectorAll("h4").forEach(function (h) { h.style.display = term ? "none" : ""; });
+    toc.classList.toggle("filtering", !!term);
+    document.getElementById("none").style.display = any ? "none" : "block";
+  });
+  q.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { var a = Array.prototype.find.call(toc.querySelectorAll("a"), function (x) { return x.style.display !== "none"; });
+      if (a) { location.hash = a.getAttribute("href"); closeMenu(); } }
+    if (e.key === "Escape") { q.value = ""; q.dispatchEvent(new Event("input")); q.blur(); }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "/" && document.activeElement !== q && !/input|textarea/i.test(document.activeElement.tagName)) { e.preventDefault(); q.focus(); }
+  });
+
+  // Mobile contents drawer.
+  var side = document.getElementById("side"), menu = document.querySelector(".menu-btn");
+  function closeMenu() { side.classList.remove("open"); menu.setAttribute("aria-expanded", "false"); }
+  menu.addEventListener("click", function () { var o = side.classList.toggle("open"); menu.setAttribute("aria-expanded", o ? "true" : "false"); });
+  toc.addEventListener("click", function (e) { if (e.target.closest("a")) closeMenu(); });
+
+  // Highlight the section in view.
+  var links = {}; toc.querySelectorAll("a").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
+  var targets = Object.keys(links).map(function (id) { return document.getElementById(id); }).filter(Boolean);
+  if ("IntersectionObserver" in window) {
+    var current = null;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) current = en.target.id; });
+      if (current && links[current]) {
+        toc.querySelectorAll("a.active").forEach(function (a) { a.classList.remove("active"); });
+        links[current].classList.add("active");
+      }
+    }, { rootMargin: "-70px 0px -70% 0px" });
+    targets.forEach(function (t) { io.observe(t); });
+  }
+})();
+</script>
+</body>
+</html>
