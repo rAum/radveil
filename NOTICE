@@ -1,0 +1,33 @@
+# RadVeil
+
+Copyright 2026 Piotr Gródek and the RadVeil contributors
+
+Licensed under the Apache License, Version 2.0.
+
+This product includes the MediaPipe BlazeFace (short range) and Face Mesh v2
+model weights, Copyright Google LLC, licensed under the Apache License,
+Version 2.0 (https://github.com/google-ai-edge/mediapipe). The files were
+modified by RadVeil: exported from TFLite to RadVeil's own network format
+(.rvnn) with unchanged float16 weights (crates/radveil-core/models/, see
+README.md there). They power the built-in face detector. "MediaPipe" is used only to identify the models; RadVeil is not a MediaPipe or Google product.
+
+This product includes the SynthStrip model weights (A. Hoopes, J. S. Mora,
+A. V. Dalca, B. Fischl, M. Hoffmann; https://synthstrip.io), used under the
+MIT License as offered by the SynthStrip authors. The file was modified by
+RadVeil: converted from the PyTorch checkpoint with weights rounded to
+float16 (crates/radveil-core/models/synthstrip.1.rvss; license and
+provenance in models/LICENSE-synthstrip). It powers brain extraction
+(`deskull`, method "synthstrip"). If you publish results, please cite
+Hoopes et al., NeuroImage 260 (2022) 119474.
+
+This product includes third-party Rust crates under permissive licenses
+(MIT, Apache-2.0, BSD, ISC, Zlib and similar). Their notices and license
+texts are in THIRD_PARTY_LICENSES.txt.
+
+This product optionally uses dlib (Boost Software License) for face
+detection at runtime, via the separately installed `dlib` Python package.
+No dlib model file is distributed with this product. The default dlib
+landmark model, downloaded by the user with radveil.fetch_predictor(), is
+dlib's 5-point predictor, published under CC0-1.0. dlib's 68-point models
+(iBUG 300-W training data, commercial use excluded) are used only when the
+user supplies one explicitly. See docs/legal.md.
