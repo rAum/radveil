@@ -24,6 +24,10 @@ thiserror = "2"
 png = "0.18"
 clap = { version = "4", features = ["derive", "env"] }
 
+# Shipped artifacts (wheels, CLI, C library) are built with this profile.
+# `cargo install radveil-cli` reads radveil-cli's own copy instead; keep
+# the two in sync.
 [profile.release]
-lto = "thin"
+lto = "fat"
 codegen-units = 1
+strip = true

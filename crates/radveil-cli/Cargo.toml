@@ -11,6 +11,14 @@ keywords = ["nifti", "mri", "defacing", "anonymization", "cli"]
 categories = ["command-line-utilities", "science"]
 readme = "../../README.md"
 
+# Used by `cargo install radveil-cli`, which ignores the workspace profile.
+# Inside the workspace cargo warns that it is ignored; the root Cargo.toml
+# holds the same settings.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+
 [[bin]]
 name = "radveil"
 path = "src/main.rs"
