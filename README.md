@@ -270,7 +270,7 @@ to identify the components and data RadVeil uses and do not imply
 endorsement by their owners.
 
 Generative AI tools were used in developing this project, including code,
-documentation and the website. All of it was reviewed by the author.
+documentation and the website.
 
 RadVeil is provided "as is", without warranty of any kind (see the
 license). To the maximum extent permitted by applicable law, the author
