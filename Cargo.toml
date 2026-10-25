@@ -3,7 +3,7 @@ members = ["crates/radveil-core", "crates/radveil-cli", "crates/radveil-py", "cr
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "Apache-2.0"
 # 1.98 bundles the LLVM objcopy fix for macOS strip (rust-lang/rust#157750):
@@ -13,7 +13,7 @@ authors = ["Piotr Gródek"]
 repository = "https://github.com/rAum/radveil"
 
 [workspace.dependencies]
-radveil-core = { version = "0.1.0", path = "crates/radveil-core" }
+radveil-core = { version = "0.1.1", path = "crates/radveil-core" }
 nifti = { version = "0.18", features = ["ndarray_volumes"] }
 ndarray = { version = "0.17", features = ["rayon"] }
 rayon = "1.10"

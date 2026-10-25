@@ -8,8 +8,8 @@ authors:
 license: Apache-2.0
 repository-code: "https://github.com/rAum/radveil"
 url: "https://rAum.github.io/radveil/"
-version: 0.1.0
-date-released: 2026-10-24
+version: 0.1.1
+date-released: 2026-10-25
 abstract: >-
   RadVeil removes identifiable facial and auricular (ear) surfaces from
   NIfTI head MRI and CT. It localizes the face the way an attacker would --

@@ -520,7 +520,7 @@ dependencies = [
 
 [[package]]
 name = "radveil-capi"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ndarray",
  "radveil-core",
@@ -528,7 +528,7 @@ dependencies = [
 
 [[package]]
 name = "radveil-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -541,7 +541,7 @@ dependencies = [
 
 [[package]]
 name = "radveil-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "flate2",
  "matrixmultiply",
@@ -557,7 +557,7 @@ dependencies = [
 
 [[package]]
 name = "radveil-py"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ndarray",
  "numpy",
@@ -568,7 +568,7 @@ dependencies = [
 
 [[package]]
 name = "radveil-wasm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "flate2",
  "radveil-core",
