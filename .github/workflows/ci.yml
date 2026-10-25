@@ -93,7 +93,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+        # ubuntu-24.04, not -latest: Ubuntu 26.04 has no Python 3.9 builds
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, windows-latest]
         # abi3 wheel: one build serves every CPython >= 3.9; test both ends
         python: ["3.9", "3.13"]
     steps:
