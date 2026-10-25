@@ -10,6 +10,7 @@
     <a href="https://github.com/rAum/radveil/actions/workflows/release.yml"><img src="https://github.com/rAum/radveil/actions/workflows/release.yml/badge.svg" alt="Release"></a>
   <a href="https://pypi.org/project/radveil/"><img src="https://img.shields.io/pypi/v/radveil" alt="PyPI"></a>
   <a href="https://crates.io/crates/radveil-core"><img src="https://img.shields.io/crates/v/radveil-core" alt="crates.io"></a>
+  <a href="https://doi.org/10.5281/zenodo.23637315"><img src="https://zenodo.org/badge/1388104294.svg" alt="DOI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0"></a>
 </p>
 
