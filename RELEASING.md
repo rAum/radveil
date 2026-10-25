@@ -53,6 +53,14 @@ it has been published; release a new patch version instead.
   `radveil-core` and `radveil-cli`, add the trusted publisher on crates.io
   (repository `rAum/radveil`, workflow `release.yml`, environment
   `crates-io`) and delete the secret and the token.
+- **Zenodo** (a DOI per release): before pushing the first tag, sign in to
+  zenodo.org with GitHub, open Account → GitHub, and switch `rAum/radveil`
+  on. Zenodo archives each GitHub release from then on, taking its metadata
+  from `CITATION.cff`; releases created before the switch are not archived.
+  After the first archive, copy the *concept* DOI (the one that resolves to
+  the latest version) into `CITATION.cff` (`doi:`), the BibTeX snippets in
+  `README.md` and `site/index.html` (`doi = {...}`), and a README badge
+  (`https://zenodo.org/badge/DOI/<doi>.svg`).
 - **GitHub Pages**: Settings → Pages → Source: GitHub Actions (`pages.yml`
   deploys `site/` on pushes to `main`).
 - **Private vulnerability reporting**: Settings → Security → enable it

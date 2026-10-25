@@ -110,13 +110,14 @@ jobs:
         if: matrix.from-sdist
         shell: bash
         run: pip install dist/*.tar.gz
+      # dependencies first: the wheel install below cannot reach PyPI for numpy
+      - run: pip install numpy nibabel pytest
       - name: Install the platform wheel
         if: ${{ !matrix.from-sdist }}
         run: pip install --only-binary radveil --no-index --find-links dist radveil
       - name: Test (dlib not installed; the built-in detector must suffice)
         shell: bash
         run: |
-          pip install numpy nibabel pytest
           if python -c "import dlib" 2>/dev/null; then echo "dlib must not be installed"; exit 1; fi
           # run from outside the checkout so the installed package is tested
           cd "$RUNNER_TEMP" && python -m pytest "$GITHUB_WORKSPACE/tests" -q
