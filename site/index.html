@@ -197,7 +197,8 @@ section h2{font-size:clamp(1.75rem,3.2vw,2.35rem); font-weight:780; letter-spaci
 .split{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:56px; align-items:center; margin-top:44px}
 .pair{display:grid; grid-template-columns:1fr 1fr; gap:12px}
 .pair figure,.solo figure{margin:0; background:#000; border-radius:12px; overflow:hidden; border:1px solid var(--line)}
-.pair img,.solo img{display:block; width:100%}
+.pair img,.solo img{display:block; width:100%; height:auto}
+.shot{margin-top:44px}
 .pair figcaption,.solo figcaption{padding:9px 12px; font:500 .76rem "IBM Plex Mono",monospace; color:var(--muted); background:var(--surface); border-top:1px solid var(--line)}
 .legend{display:inline-block; width:12px; height:3px; border-radius:2px; vertical-align:middle; margin:0 5px 0 0}
 .points{list-style:none; padding:0; display:grid; gap:18px}
@@ -229,7 +230,7 @@ pre .c{color:#6f7d8b; font-style:italic} pre .k{color:#8fe0c9} pre .s{color:#f0c
 .refusal p{font:400 .93rem/1.55 Archivo,sans-serif; color:var(--muted)}
 .refusal b{color:var(--ink)}
 
-.ifaces{display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-top:24px}
+.ifaces{display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-top:24px}
 .ifaces a{display:block; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; color:var(--ink)}
 .ifaces a:hover{border-color:var(--accent); text-decoration:none}
 .ifaces b{font:700 .92rem Archivo,sans-serif; display:block}
@@ -315,6 +316,7 @@ try { var t = localStorage.getItem("radveil-theme"); if (t === "light" || t === 
       <a href="#results">Results</a>
       <a href="#modes">Modes</a>
       <a href="#quickstart">Quickstart</a>
+      <a href="#slicer">3D Slicer</a>
       <a href="docs.html">Docs</a>
       <a href="demo/">Demo</a>
     </nav>
@@ -563,6 +565,58 @@ report = radveil.<span class="f">deface_auto</span>(<span class="s">"t1.nii.gz"<
       <a href="docs.html#ref-c"><b>C / C++</b><span><code>libradveil</code> + <code>radveil.h</code></span></a>
       <a href="docs.html#ref-rust"><b>Rust</b><span><code>radveil-core</code>, custom detectors via a trait</span></a>
       <a href="demo/"><b>Browser</b><span>WebAssembly; the scan stays on your machine</span></a>
+      <a href="#slicer"><b>3D Slicer</b><span>Extension with before/after review</span></a>
+    </div>
+  </div>
+</section>
+
+<section id="slicer">
+  <div class="wrap split">
+    <div>
+      <div class="eyebrow">3D Slicer extension</div>
+      <h2>Deface and review without leaving Slicer</h2>
+      <p class="sub"><a href="https://github.com/rAum/SlicerRadVeil">SlicerRadVeil</a> adds a
+      <b>RadVeil Defacing</b> module (<i>Utilities</i>) to 3D Slicer: anonymize the face, the ears or both, then check
+      the result before anything leaves your machine. The first run installs the <code>radveil</code> wheel into
+      Slicer&rsquo;s Python with one click &mdash; no compiler, ML framework or model download.</p>
+      <ul class="points" style="margin-top:26px">
+        <li><div><h3>Preview before you change anything</h3><p>The region RadVeil would rewrite is outlined in amber in 3D and in the slices, with the 68 face landmarks it found.</p></div></li>
+        <li><div><h3>Before/after in linked 3D views</h3><p>Original and anonymized skin surfaces side by side; a skin-threshold slider hunts for detail another surface would reveal.</p></div></li>
+        <li><div><h3>Brain next to the region</h3><p>A SynthStrip brain segment (blue) beside the changed region (amber) makes the clearance visible, with an optional hard brain guard.</p></div></li>
+        <li><div><h3>Whole sessions, plain verdicts</h3><p>FLAIR, DWI and other aligned series reuse the face found on the T1 and are each re-verified. A green, amber or red verdict comes with RadVeil&rsquo;s full JSON report.</p></div></li>
+      </ul>
+    </div>
+    <div>
+      <div class="codecard" data-tabs style="margin-top:0">
+        <div class="tl" role="tablist" aria-label="Slicer example">
+          <button type="button" role="tab" aria-selected="true" data-pane="q-slicer">Slicer Python console</button>
+          <button class="copy" type="button" data-copy="#q-slicer">Copy</button>
+        </div>
+<pre id="q-slicer"><code><span class="k">import</span> RadVeil
+logic = RadVeil.<span class="f">RadVeilLogic</span>()
+t1 = getNode(<span class="s">"MRHead"</span>)
+
+<span class="c"># outline region + landmarks; changes nothing</span>
+preview = logic.<span class="f">previewRegion</span>(t1, region=<span class="s">"face+ears"</span>)
+
+result = logic.<span class="f">process</span>(
+    t1, region=<span class="s">"face+ears"</span>, mode=<span class="s">"adaptive"</span>,
+    earMode=<span class="s">"cut"</span>, brain_guard=<span class="k">True</span>,
+    brainSegment=<span class="k">True</span>,
+    otherVolumes=[getNode(<span class="s">"FLAIR"</span>)])
+<span class="c"># result.outputVolume, .regionSegmentation,</span>
+<span class="c"># result.otherSeries, .report</span></code></pre>
+      </div>
+      <p class="stagenote">Slicer 5.6 or later on Windows, macOS and Linux. Install from <i>View &rarr; Extensions
+      Manager</i> once listed, or from the <a href="https://github.com/rAum/SlicerRadVeil">repository</a>. Offline
+      computers can install a downloaded wheel from inside the module. Like RadVeil itself, the module changes voxels
+      only: node names, file names and DICOM tags are untouched.</p>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="solo shot">
+      <figure><a href="img/slicer_module.webp"><img src="img/slicer_module.webp" alt="3D Slicer with the RadVeil Defacing module: settings and a green result on the left, original face with detected landmarks next to the anonymized face in linked 3D views, and axial, sagittal and coronal slices with the brain in blue and the changed region in amber" width="1671" height="900" loading="lazy"></a>
+        <figcaption>RadVeil Defacing in 3D Slicer &middot; MRHead, face+ears, adaptive &middot; <i class="legend" style="background:#60a5fa"></i>brain &nbsp; <i class="legend" style="background:#e3aa4b"></i>changed region</figcaption></figure>
     </div>
   </div>
 </section>
