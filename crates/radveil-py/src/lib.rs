@@ -108,8 +108,8 @@ impl Volume {
     #[getter]
     fn affine<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray2<f64>> {
         let mut flat = Vec::with_capacity(16);
-        for r in 0..4 {
-            flat.extend_from_slice(&self.inner.affine[r]);
+        for row in &self.inner.affine {
+            flat.extend_from_slice(row);
         }
         let arr = PyArray1::from_vec(py, flat);
         arr.reshape([4, 4]).unwrap()

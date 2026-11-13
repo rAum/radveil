@@ -336,10 +336,10 @@ fn main() -> Result<()> {
             println!("datatype:    {:?}", v.datatype);
             println!("scaling:     slope={} inter={}", v.scl_slope, v.scl_inter);
             println!("affine (voxel -> world RAS+, mm):");
-            for r in 0..3 {
+            for row in v.affine.iter().take(3) {
                 println!(
                     "  [{:9.4} {:9.4} {:9.4} {:10.3}]",
-                    v.affine[r][0], v.affine[r][1], v.affine[r][2], v.affine[r][3]
+                    row[0], row[1], row[2], row[3]
                 );
             }
             let (lo, hi) = v.world_bounds();

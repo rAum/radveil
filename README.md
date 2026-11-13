@@ -226,13 +226,13 @@ makes your de-identification reproducible.
   author  = {Gródek, Piotr},
   title   = {{RadVeil: CPU-only face and ear anonymization for volumetric head imaging}},
   url     = {https://github.com/rAum/radveil},
-  version = {0.1.1},
+  version = {0.1.2},
   year    = {2026}
 }
 ```
 
 A methods sentence you can adapt: *"Facial and auricular surfaces were
-removed with RadVeil v0.1.1 (`region="face+ears"`, `mode="adaptive"`),
+removed with RadVeil v0.1.2 (`region="face+ears"`, `mode="adaptive"`),
 which verifies each output by re-rendering the volume and re-running the
 face detector; all voxels outside the anonymization mask are unchanged."*
 Machine-readable metadata: [CITATION.cff](CITATION.cff).
@@ -270,7 +270,7 @@ to identify the components and data RadVeil uses and do not imply
 endorsement by their owners.
 
 Generative AI tools were used in developing this project, including code,
-documentation and the website. All of it was reviewed by the author.
+documentation and the website.
 
 RadVeil is provided "as is", without warranty of any kind (see the
 license). To the maximum extent permitted by applicable law, the author
