@@ -5,6 +5,7 @@ type: software
 authors:
   - family-names: "Gródek"
     given-names: "Piotr"
+    orcid: "https://orcid.org/0000-0003-1111-4321"
 license: Apache-2.0
 repository-code: "https://github.com/rAum/radveil"
 url: "https://rAum.github.io/radveil/"
