@@ -1068,7 +1068,7 @@ macro_rules! narrow_kernel {
         /// y = a @ w + b for a narrow output: whole output rows live in
         /// registers, four rows at a time so four independent
         /// multiply-add chains are in flight.
-        #[multiversion(targets("x86_64+avx2+fma", "x86_64+avx", "aarch64+neon"))]
+        #[multiversion(targets("x86_64+avx2+fma", "x86_64+avx"))]
         fn $name(a: &[f32], k: usize, w: &[f32], bias: &[f32], y: &mut [f32]) {
             let w = &w[..k * $n];
             let bias: &[f32; $n] = bias[..$n].try_into().unwrap();
@@ -1115,7 +1115,7 @@ narrow_kernel!(narrow_24, 24);
 narrow_kernel!(narrow_32, 32);
 
 /// acc += s * x
-#[multiversion(targets("x86_64+avx2+fma", "x86_64+avx", "aarch64+neon"))]
+#[multiversion(targets("x86_64+avx2+fma", "x86_64+avx"))]
 fn fma_acc(acc: &mut [f32], s: f32, x: &[f32]) {
     for (a, &v) in acc.iter_mut().zip(x) {
         *a += s * v;
@@ -1123,7 +1123,7 @@ fn fma_acc(acc: &mut [f32], s: f32, x: &[f32]) {
 }
 
 /// acc += x * w (element-wise)
-#[multiversion(targets("x86_64+avx2+fma", "x86_64+avx", "aarch64+neon"))]
+#[multiversion(targets("x86_64+avx2+fma", "x86_64+avx"))]
 fn mul_acc(acc: &mut [f32], x: &[f32], w: &[f32]) {
     for ((a, &v), &k) in acc.iter_mut().zip(x).zip(w) {
         *a += v * k;
@@ -1233,7 +1233,7 @@ fn im2col_row(x: &[f32], h: usize, w: usize, g: &ConvGeom, oy: usize, ow: usize,
     }
 }
 
-#[multiversion(targets("x86_64+avx2+fma", "x86_64+avx", "aarch64+neon"))]
+#[multiversion(targets("x86_64+avx2+fma", "x86_64+avx"))]
 #[allow(clippy::too_many_arguments)]
 fn dwconv(
     x: &[f32],
@@ -1280,21 +1280,21 @@ fn dwconv(
     }
 }
 
-#[multiversion(targets("x86_64+avx2+fma", "x86_64+avx", "aarch64+neon"))]
+#[multiversion(targets("x86_64+avx2+fma", "x86_64+avx"))]
 fn add_assign(y: &mut [f32], b: &[f32]) {
     for (d, &q) in y.iter_mut().zip(b) {
         *d += q;
     }
 }
 
-#[multiversion(targets("x86_64+avx2+fma", "x86_64+avx", "aarch64+neon"))]
+#[multiversion(targets("x86_64+avx2+fma", "x86_64+avx"))]
 fn add(a: &[f32], b: &[f32], y: &mut [f32]) {
     for ((d, &p), &q) in y.iter_mut().zip(a).zip(b) {
         *d = p + q;
     }
 }
 
-#[multiversion(targets("x86_64+avx2+fma", "x86_64+avx", "aarch64+neon"))]
+#[multiversion(targets("x86_64+avx2+fma", "x86_64+avx"))]
 fn apply_act(y: &mut [f32], c: usize, act: &Act) {
     match act {
         Act::None => {}
