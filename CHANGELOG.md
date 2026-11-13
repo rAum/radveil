@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.2 - 2026-11-13
+
+Patch release: the face frame no longer trusts a mouth that lifted
+implausibly, which fixes partially-kept noses and spurious refusals on
+T2/PD scans. No API changes; outputs change only for scans whose mouth
+landmarks had mis-lifted.
+
+### Fixed
+- Face frame: on T2/PD scans the lips often sit below the render surface
+  threshold, so the lifted mouth landed far behind the face and pitched
+  the frame — leaving the nose only shaved skin-deep instead of cut to
+  the surrounding skin level, or failing the seen-through-air check and
+  refusing the volume. The frame now derives a reference vertical from
+  the nose axis (calibrated on 54 IXI runs), keeps the mouth only when
+  it agrees with that axis, and otherwise re-places it on the axis at
+  the calibrated distance (reported as `mouth_reconstructed`), widening
+  the protrusion zone to absorb the remaining uncertainty.
+
 ## 0.1.1 - 2026-10-25
 
 Patch release: dependency updates and release-build fixes. No API or
