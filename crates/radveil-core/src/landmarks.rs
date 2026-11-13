@@ -114,9 +114,66 @@ pub struct FaceFrame {
     pub nose_tip: Vec3,
     pub mouth: Vec3,
     pub chin: Option<Vec3>,
+    /// The lifted mouth was implausible (dim lips lift onto tissue behind
+    /// the face on T2/PD) and `mouth` was re-placed on the nose-derived
+    /// axis; the deface widens its protrusion zone to absorb the larger
+    /// frame uncertainty.
+    #[serde(default)]
+    pub mouth_reconstructed: bool,
+}
+
+/// Face `up` derived from the nose axis alone: the line from the upper
+/// dorsum (landmarks 27-28) to the tip/nostril cluster (30-35), projected
+/// perpendicular to `right` and tilted by [`NOSE_LEAN_DEG`]. The nose is
+/// the most reliably lifted feature — bright, protruding skin that renders
+/// in every contrast — unlike the lips, which are dim on T2/PD and lift
+/// onto tissue far behind the face. Returns None when the nose points are
+/// missing, the axis is too short, or its geometry fails the sanity gates.
+fn nose_up(lm: &[Option<Vec3>], origin: Vec3, right: Vec3, eye_dist: f64) -> Option<Vec3> {
+    let upper = mean_of(lm, 27..=28)?;
+    let lower = mean_of(lm, 30..=35)?;
+    // The upper dorsum sits between the eyes: far away means the nose
+    // landmarks themselves mis-lifted, and the axis must not vote.
+    if crate::affine::norm(sub(upper, origin)) > NOSE_NASION_MAX * eye_dist {
+        return None;
+    }
+    let axis = sub(upper, lower);
+    let a_perp = sub(axis, scale(right, dot(axis, right)));
+    if crate::affine::norm(a_perp) < NOSE_AXIS_MIN * eye_dist {
+        return None;
+    }
+    let a_perp = normalize(a_perp);
+    let f0 = cross(right, a_perp);
+    if crate::affine::norm(f0) < 1e-6 {
+        return None;
+    }
+    let mut f0 = normalize(f0);
+    // f0 points out of the face: the nose tip lies in front of the eye
+    // plane. Too small a margin means the geometry is unreliable.
+    if dot(f0, sub(lower, origin)) < 0.0 {
+        f0 = scale(f0, -1.0);
+    }
+    if dot(f0, sub(lower, origin)) < NOSE_FORWARD_MIN * eye_dist {
+        return None;
+    }
+    // The dorsum leans forward of the face's `up`; rotate it back.
+    let lean = NOSE_LEAN_DEG.to_radians();
+    Some(normalize(sub(
+        scale(a_perp, lean.cos()),
+        scale(f0, lean.sin()),
+    )))
 }
 
 /// Build the face frame from combined 3D landmarks (68-point indexing).
+///
+/// The vertical axis normally comes from the mouth (eyes->mouth), but the
+/// lifted mouth is validated against the nose axis: lips below the render
+/// threshold (T2/PD) lift onto tissue far behind the face and would pitch
+/// the whole frame (and the deface ROI with it). A mouth whose direction
+/// disagrees with the nose axis by more than [`MOUTH_MAX_TILT_DEG`], or
+/// whose distance falls outside [`MOUTH_DIST_RANGE`], is discarded and
+/// re-placed on the nose-derived axis at the calibrated distance; the
+/// frame then reports `mouth_reconstructed`.
 pub fn face_frame_from_landmarks(lm: &[Option<Vec3>]) -> Result<FaceFrame, String> {
     let eye_r = mean_of(lm, 36..=41).ok_or("missing right-eye landmarks")?;
     let eye_l = mean_of(lm, 42..=47).ok_or("missing left-eye landmarks")?;
@@ -126,7 +183,7 @@ pub fn face_frame_from_landmarks(lm: &[Option<Vec3>]) -> Result<FaceFrame, Strin
         .flatten()
         .or_else(|| mean_of(lm, 27..=35))
         .ok_or("missing nose landmarks")?;
-    let mouth = mean_of(lm, 48..=67).ok_or("missing mouth landmarks")?;
+    let mouth_lifted = mean_of(lm, 48..=67).ok_or("missing mouth landmarks")?;
     let chin = lm.get(8).copied().flatten();
 
     let origin = scale(add(eye_l, eye_r), 0.5);
@@ -138,7 +195,27 @@ pub fn face_frame_from_landmarks(lm: &[Option<Vec3>]) -> Result<FaceFrame, Strin
         ));
     }
     let right0 = normalize(sub(eye_l, eye_r));
-    let up0 = normalize(sub(origin, mouth));
+    let mouth_dist = crate::affine::norm(sub(origin, mouth_lifted)) / eye_dist;
+    let mouth_dir = normalize(sub(origin, mouth_lifted));
+    let nose = nose_up(lm, origin, right0, eye_dist);
+    let mouth_ok = (MOUTH_DIST_RANGE.0..=MOUTH_DIST_RANGE.1).contains(&mouth_dist)
+        && nose.is_none_or(|n| {
+            dot(mouth_dir, n).clamp(-1.0, 1.0).acos().to_degrees() <= MOUTH_MAX_TILT_DEG
+        });
+    let (up0, mouth, mouth_reconstructed) = if mouth_ok {
+        (mouth_dir, mouth_lifted, false)
+    } else if let Some(n) = nose {
+        // Mouth re-placed where it would be on this face if the lips had
+        // lifted onto the skin: along the nose-derived down axis at the
+        // calibrated distance.
+        (n, sub(origin, scale(n, MOUTH_DIST * eye_dist)), true)
+    } else {
+        return Err(format!(
+            "lifted mouth is implausible (eyes->mouth {:.2} x eye-dist) and the nose \
+             axis is unusable — landmark lifting failed",
+            mouth_dist
+        ));
+    };
     let mut forward = normalize(cross(right0, up0));
     // Orient forward out of the face: the nose tip protrudes forward of the
     // eyes/mouth plane.
@@ -164,6 +241,7 @@ pub fn face_frame_from_landmarks(lm: &[Option<Vec3>]) -> Result<FaceFrame, Strin
         nose_tip,
         mouth,
         chin,
+        mouth_reconstructed,
     })
 }
 
@@ -173,6 +251,30 @@ pub fn face_frame_from_landmarks(lm: &[Option<Vec3>]) -> Result<FaceFrame, Strin
 /// the lips). Used to place a mouth the scan does not contain.
 const MOUTH_DIST: f64 = 1.15;
 const UP_LEAN_DEG: f64 = 27.0;
+
+// Nose-axis calibration, measured on 54 IXI runs (45 with a clean mouth
+// lift; T1 plus the T2/PD scans whose mouth agreed with their own T1):
+// dorsum lean -11.3 deg median, spread -26..+3; frames with a corrupted
+// mouth sat at +32..+63, so the 25 deg gate splits the two populations
+// with ~15 deg of margin on either side.
+/// Lean of the nose dorsum (upper dorsum -> tip axis) forward of the
+/// face's `up`, degrees.
+const NOSE_LEAN_DEG: f64 = 11.3;
+/// A lifted mouth must agree with the nose-derived `up` within this
+/// angle, degrees.
+const MOUTH_MAX_TILT_DEG: f64 = 25.0;
+/// Plausible eyes->mouth distance, x inter-eye distance (measured
+/// 0.82..1.14 on clean lifts).
+const MOUTH_DIST_RANGE: (f64, f64) = (0.72, 1.35);
+/// The upper dorsum must sit within this distance of the eye midpoint,
+/// x inter-eye distance (measured <= 0.45).
+const NOSE_NASION_MAX: f64 = 0.55;
+/// Minimum length of the nose axis perpendicular to `right`, x inter-eye
+/// distance (measured >= 0.47).
+const NOSE_AXIS_MIN: f64 = 0.25;
+/// The tip/nostril cluster must sit at least this far in front of the eye
+/// plane, x inter-eye distance (measured >= 0.14).
+const NOSE_FORWARD_MIN: f64 = 0.08;
 
 /// Face frame for a face whose mouth is outside the field of view (an
 /// axial slab cut at the nose): the mouth is placed where it would be
