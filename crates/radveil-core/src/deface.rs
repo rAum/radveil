@@ -584,12 +584,21 @@ fn build_face_wall(
         true,
     );
     // Nose and lips: centred, from below the mouth up to the nasal bridge.
+    // A frame whose mouth was reconstructed from the nose axis carries a
+    // larger pitch uncertainty (the nose-dorsum lean varies ~+-15 deg
+    // between subjects), so the zone reaches further up; the protrusion
+    // test itself keeps the flat forehead and brow safe.
+    let zone_top = if frame.mouth_reconstructed {
+        FACE_ZONE_ABOVE_EYES_WIDE
+    } else {
+        FACE_ZONE_ABOVE_EYES
+    };
     let mouth_v = frame.to_face(frame.mouth)[1];
     let in_zone = |i: usize| {
         let (cu, cv) = (u[0] + (i / nv) as f64 * step, v[0] + (i % nv) as f64 * step);
         cu.abs() <= FACE_ZONE_HALF_WIDTH * ed
             && cv >= mouth_v - FACE_ZONE_BELOW_MOUTH * ed
-            && cv <= FACE_ZONE_ABOVE_EYES * ed
+            && cv <= zone_top * ed
     };
     let protrudes: Vec<bool> = (0..nu * nv)
         .map(|i| {
@@ -777,6 +786,9 @@ const FACE_ZONE_HALF_WIDTH: f64 = 0.55;
 const FACE_ZONE_BELOW_MOUTH: f64 = 0.30;
 /// ... and up to this far above the eye line (the nasal bridge).
 const FACE_ZONE_ABOVE_EYES: f64 = 0.15;
+/// Zone ceiling when the frame's mouth was reconstructed from the nose
+/// axis (larger pitch uncertainty, see `face_frame_from_landmarks`).
+const FACE_ZONE_ABOVE_EYES_WIDE: f64 = 0.35;
 /// A face column more than this (mm) deeper than the median of its
 /// neighbours within `FACE_PIT_RADIUS_MM` is a skin pit (see
 /// `build_face_wall`).

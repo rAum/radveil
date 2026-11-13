@@ -1061,3 +1061,58 @@ fn spare_air_leaves_far_air_untouched() {
     }
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn implausible_mouth_is_rebuilt_from_the_nose_axis() {
+    // Landmark geometry copied from a clean IXI T1 lift, in face-frame
+    // units of the inter-eye distance, placed in world with right = +x,
+    // up = +z, forward = +y, eyes at (+-22, 62, 10).
+    let ed = 44.0;
+    let origin = [0.0, 62.0, 10.0];
+    let place = |u: f64, v: f64, w: f64| -> Option<[f64; 3]> {
+        Some([origin[0] + u * ed, origin[1] + w * ed, origin[2] + v * ed])
+    };
+    let build = |mouth: Option<[f64; 3]>| -> Vec<Option<[f64; 3]>> {
+        let mut lm: Vec<Option<[f64; 3]>> = vec![None; 68];
+        for i in 36..42 {
+            lm[i] = Some([-22.0, 62.0, 10.0]);
+        }
+        for i in 42..48 {
+            lm[i] = Some([22.0, 62.0, 10.0]);
+        }
+        lm[27] = place(0.006, -0.026, 0.261);
+        lm[28] = place(0.001, -0.260, 0.422);
+        lm[30] = place(-0.003, -0.574, 0.542);
+        lm[31] = place(-0.166, -0.629, 0.134);
+        lm[32] = place(-0.121, -0.676, 0.171);
+        lm[33] = place(0.006, -0.711, 0.264);
+        lm[34] = place(0.129, -0.693, 0.211);
+        lm[35] = place(0.192, -0.636, 0.166);
+        for i in 48..68 {
+            lm[i] = mouth;
+        }
+        lm
+    };
+
+    // A plausible mouth (0.98 x eye-dist below the eyes) is kept.
+    let good = face_frame_from_landmarks(&build(place(0.0, -0.979, 0.0))).unwrap();
+    assert!(!good.mouth_reconstructed);
+    assert!(good.up[2] > 0.98, "up = {:?}", good.up);
+    assert!(good.forward[1] > 0.9, "forward = {:?}", good.forward);
+
+    // A mouth lifted deep behind the face (dim lips on T2/PD) pitches the
+    // eyes->mouth axis by ~50 deg; the frame must fall back to the nose
+    // axis instead of following it.
+    let bad = face_frame_from_landmarks(&build(Some([0.0, -20.0, -45.0]))).unwrap();
+    assert!(bad.mouth_reconstructed);
+    assert!(bad.up[2] > 0.95, "up = {:?}", bad.up);
+    assert!(bad.forward[1] > 0.9, "forward = {:?}", bad.forward);
+    // The mouth is re-placed below the eyes at the calibrated distance,
+    // not left behind the face.
+    assert!(bad.mouth[1] > 40.0, "mouth = {:?}", bad.mouth);
+    let d = ((bad.mouth[0] - origin[0]).powi(2)
+        + (bad.mouth[1] - origin[1]).powi(2)
+        + (bad.mouth[2] - origin[2]).powi(2))
+    .sqrt();
+    assert!((d / ed - 1.15).abs() < 0.01, "eyes->mouth {} x ed", d / ed);
+}
