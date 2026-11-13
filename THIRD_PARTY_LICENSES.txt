@@ -66,7 +66,7 @@ The binaries statically link the Rust standard library and runtime
 Developers, licensed under MIT OR Apache-2.0. Both texts are reproduced
 below; per-component notices: https://github.com/rust-lang/rust/blob/master/COPYRIGHT
 
-Rust crates (85)
+Rust crates (84)
 ----------------
 adler2 2.0.1  [0BSD OR MIT OR Apache-2.0]  https://github.com/oyvindln/adler2
 anstream 1.0.0  [MIT OR Apache-2.0]  https://github.com/rust-cli/anstyle.git
@@ -103,8 +103,8 @@ matrixmultiply 0.3.11  [MIT/Apache-2.0]  https://github.com/bluss/matrixmultiply
 memchr 2.8.3  [Unlicense OR MIT]  https://github.com/BurntSushi/memchr
 miniz_oxide 0.8.9  [MIT OR Zlib OR Apache-2.0]  https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide
 miniz_oxide 0.9.1  [MIT OR Zlib OR Apache-2.0]  https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide
-multiversion 0.8.0  [MIT OR Apache-2.0]  https://github.com/calebzulawski/multiversion
-multiversion-macros 0.8.0  [MIT OR Apache-2.0]  https://github.com/calebzulawski/multiversion
+multiversion 0.9.2  [MIT OR Apache-2.0]  https://github.com/calebzulawski/multiversion
+multiversion-macros 0.9.2  [MIT OR Apache-2.0]  https://github.com/calebzulawski/multiversion
 ndarray 0.17.2  [MIT OR Apache-2.0]  https://github.com/rust-ndarray/ndarray
 nifti 0.18.0  [MIT OR Apache-2.0]  https://github.com/Enet4/nifti-rs
 num-complex 0.4.6  [MIT OR Apache-2.0]  https://github.com/rust-num/num-complex
@@ -139,7 +139,6 @@ simd-adler32 0.3.10  [MIT]  https://github.com/mcountryman/simd-adler32
 strsim 0.11.1  [MIT]  https://github.com/rapidfuzz/strsim-rs
 syn 2.0.119  [MIT OR Apache-2.0]  https://github.com/dtolnay/syn
 syn 3.0.4  [MIT OR Apache-2.0]  https://github.com/dtolnay/syn
-target-features 0.1.6  [MIT OR Apache-2.0]  https://github.com/calebzulawski/target-features
 target-lexicon 0.13.5  [Apache-2.0 WITH LLVM-exception]  https://github.com/bytecodealliance/target-lexicon
 thiserror 2.0.21  [MIT OR Apache-2.0]  https://github.com/dtolnay/thiserror
 thiserror-impl 2.0.21  [MIT OR Apache-2.0]  https://github.com/dtolnay/thiserror
@@ -820,7 +819,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 END OF TERMS AND CONDITIONS
 
 ==============================================================================
-Used by: approx 0.5.1 (LICENSE), byteordered 0.6.0 (LICENSE-APACHE), multiversion 0.8.0 (LICENSE-APACHE), multiversion-macros 0.8.0 (LICENSE-APACHE), target-features 0.1.6 (LICENSE-APACHE)
+Used by: approx 0.5.1 (LICENSE), byteordered 0.6.0 (LICENSE-APACHE), multiversion 0.9.2 (LICENSE-APACHE), multiversion-macros 0.9.2 (LICENSE-APACHE)
 ==============================================================================
 
 Apache License
@@ -2246,7 +2245,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 
 ==============================================================================
-Used by: multiversion 0.8.0 (LICENSE-MIT), multiversion-macros 0.8.0 (LICENSE-MIT)
+Used by: multiversion 0.9.2 (LICENSE-MIT), multiversion-macros 0.9.2 (LICENSE-MIT)
 ==============================================================================
 
 Copyright 2019 Caleb Zulawski
@@ -2931,18 +2930,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-==============================================================================
-Used by: target-features 0.1.6 (LICENSE-MIT)
-==============================================================================
-
-Copyright 2022 Caleb Zulawski
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
 Used by: target-lexicon 0.13.5 (LICENSE)
