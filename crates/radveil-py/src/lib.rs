@@ -259,6 +259,7 @@ impl Volume {
             spare_air,
             level_face,
             surface_threshold: None,
+            ..Default::default()
         };
         let (report, mask) = py.detach(|| core_deface(&mut self.inner, &frame, &params));
         let d = PyDict::new(py);
@@ -544,6 +545,10 @@ fn deface_params(kw: Option<&Bound<'_, PyDict>>) -> PyResult<DefaceParams> {
             "eye_surface_anchor" => p.eye_surface_anchor = Some(v.extract()?),
             "spare_air" => p.spare_air = v.extract()?,
             "level_face" => p.level_face = v.extract()?,
+            "deep" => p.deep = v.extract()?,
+            "reshape" => p.reshape = v.extract()?,
+            "deep_depth_mm" => p.deep_depth_mm = mm()?,
+            "deep_guard_mm" => p.deep_guard_mm = mm()?,
             "eye_bias_mm" => p.eye_bias_mm = mm()?,
             "blur_sigma_mm" => p.blur_sigma_mm = mm()?,
             "adaptive_factor" => p.adaptive_factor = mm()?,
@@ -696,6 +701,12 @@ fn fill_deface_report(
     d.set_item("skin_depth_mm", report.resolved.skin_depth_mm)?;
     if let Some(a) = report.face_seen_through_air {
         d.set_item("face_seen_through_air", a)?;
+    }
+    if let Some(mm) = report.brain_guard_mm {
+        d.set_item("brain_guard_mm", mm)?;
+    }
+    if report.deep {
+        d.set_item("deep", true)?;
     }
     if let Some(n) = report.protected_voxels_spared {
         d.set_item("protected_voxels_spared", n)?;

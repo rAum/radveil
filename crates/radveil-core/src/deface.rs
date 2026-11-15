@@ -212,6 +212,48 @@ pub struct DefaceParams {
     /// the skin the cut follows is the skin the detector saw.
     #[serde(default)]
     pub surface_threshold: Option<f32>,
+    /// Face ROI: depth-adaptive region (opt-in). The skin-deep wall leaves
+    /// the face's shape in the tissue below it (fat, muscle, bone), where a
+    /// render at a higher iso-surface finds it. With `deep` the back wall
+    /// goes `deep_depth_mm` below the measured skin, and every column stops
+    /// in front of the extracted brain grown by `deep_guard_mm`. Only
+    /// active when the plan is built with that protected set
+    /// ([`plan_guarded`]; [`crate::deface_auto`] and
+    /// [`crate::anonymization_mask`] extract the brain for it, so `deep`
+    /// implies the brain guard): without one the region stays skin-deep.
+    #[serde(default)]
+    pub deep: bool,
+    /// `deep`: depth below the skin, mm (auto: 0.40 x inter-eye distance,
+    /// ~25 mm). The brain margin, not this depth, is what bounds the
+    /// region near the brain.
+    #[serde(default)]
+    pub deep_depth_mm: Option<f64>,
+    /// `deep`: brain margin, mm (default [`DEEP_GUARD_MM`]). With
+    /// `brain_guard` on as well, the larger of the two margins applies.
+    #[serde(default)]
+    pub deep_guard_mm: Option<f64>,
+    /// EXPERIMENTAL, face ROI, with `deep` (opt-in): before the mode
+    /// rewrites the region, move the tissue of every column along the
+    /// forward axis so that the skin lands on a generic face surface
+    /// ([`generic_face`]); the displacement is zero at the back wall and
+    /// fades out towards the hull's sides. On its own (without a blur) the
+    /// result still identifies the subject: tissue moves only along the
+    /// forward axis, so lateral layout and texture stay.
+    #[serde(default)]
+    pub reshape: bool,
+}
+
+/// Default brain margin for [`DefaceParams::deep`], mm. 3 mm (the brain
+/// guard's default) let the deep region touch the expert brain mask on 4
+/// of 201 SynthStrip-set scans, where SynthStrip's own mask ends inside
+/// the expert one; 5 mm touched none.
+pub const DEEP_GUARD_MM: f64 = 5.0;
+
+impl DefaceParams {
+    /// Brain margin `deep` uses, mm.
+    pub fn deep_guard(&self) -> f64 {
+        self.deep_guard_mm.unwrap_or(DEEP_GUARD_MM)
+    }
 }
 
 /// Auto-scaling factors, as fractions of the inter-eye distance (~60 mm on
@@ -222,6 +264,7 @@ mod auto {
     pub const BELOW_CHIN: f64 = 0.43; // ~25 mm
     pub const DEPTH_BEHIND: f64 = 0.21; // ~12 mm hull floor
     pub const SKIN_DEPTH: f64 = 0.07; // ~4.5 mm below the skin
+    pub const DEEP_DEPTH: f64 = 0.40; // ~25 mm below the skin (`deep`)
     pub const DEPTH_FRONT: f64 = 1.55; // ~90 mm
     pub const BLUR_SIGMA: f64 = 0.17; // ~10 mm
     pub const ADAPTIVE_FACTOR: f64 = 2.5;
@@ -264,6 +307,9 @@ pub struct ResolvedParams {
     /// See [`DefaceParams::surface_threshold`].
     #[serde(default)]
     pub surface_threshold: Option<f32>,
+    /// See [`DefaceParams::deep_depth_mm`] (used only with `deep`).
+    #[serde(default)]
+    pub deep_depth_mm: f64,
 }
 
 impl DefaceParams {
@@ -286,6 +332,7 @@ impl DefaceParams {
             ear_height_mm: self.ear_height_mm.unwrap_or(auto::EAR_HEIGHT * ed),
             ear_depth_mm: self.ear_depth_mm.unwrap_or(auto::EAR_DEPTH * ed),
             surface_threshold: self.surface_threshold,
+            deep_depth_mm: self.deep_depth_mm.unwrap_or(auto::DEEP_DEPTH * ed),
         }
     }
 }
@@ -336,6 +383,13 @@ pub struct DefaceReport {
     /// untouched because they are protected. `None` without one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub protected_voxels_spared: Option<usize>,
+    /// With the brain guard or `deep`: the margin around the extracted
+    /// brain that was protected, mm. Set by [`crate::deface_auto`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brain_guard_mm: Option<f64>,
+    /// Whether the face region was extended with `deep`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub deep: bool,
     /// With [`DefaceParams::spare_air`]: region voxels left untouched
     /// because they were air and stayed air (not in `voxels_changed`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -357,6 +411,8 @@ struct Roi {
     /// Face: per-(u,v)-column posterior bound w following the measured
     /// skin. Voxels are only rewritten anterior of it.
     face_wall: Option<FaceWall>,
+    /// Face, `reshape`: per-column skin and target heights on the wall's grid.
+    face_warp: Option<FaceWarp>,
     /// Face: whether the face surface was seen through air (see
     /// `build_face_wall`); false means it lies on a FOV cut.
     seen_through_air: Option<bool>,
@@ -376,7 +432,32 @@ struct FaceWall {
     wall: Vec<f64>,
 }
 
+/// `reshape`: where the skin is (`skin`) and where it goes (`target`), per
+/// column of the face wall's grid, mm along the forward axis. Columns that
+/// are not moved have `skin == target`.
+#[derive(Clone)]
+struct FaceWarp {
+    skin: Vec<f64>,
+    target: Vec<f64>,
+}
+
 impl FaceWall {
+    /// Bilinear value of a per-column field `f` (same grid as the wall).
+    fn lerp(&self, f: &[f64], u: f64, v: f64) -> f64 {
+        let x = ((u - self.u0) / self.step).clamp(0.0, (self.nu - 1) as f64);
+        let y = ((v - self.v0) / self.step).clamp(0.0, (self.nv - 1) as f64);
+        let (i0, j0) = (
+            (x.floor() as usize).min(self.nu.saturating_sub(2)),
+            (y.floor() as usize).min(self.nv.saturating_sub(2)),
+        );
+        let (fx, fy) = (x - i0 as f64, y - j0 as f64);
+        let g = |i: usize, j: usize| f[i.min(self.nu - 1) * self.nv + j.min(self.nv - 1)];
+        g(i0, j0) * (1.0 - fx) * (1.0 - fy)
+            + g(i0 + 1, j0) * fx * (1.0 - fy)
+            + g(i0, j0 + 1) * (1.0 - fx) * fy
+            + g(i0 + 1, j0 + 1) * fx * fy
+    }
+
     fn at(&self, u: f64, v: f64) -> f64 {
         let i = (((u - self.u0) / self.step).round() as isize).clamp(0, self.nu as isize - 1);
         let j = (((v - self.v0) / self.step).round() as isize).clamp(0, self.nv as isize - 1);
@@ -412,6 +493,8 @@ fn build_face_roi(
     params: &ResolvedParams,
     eye_bias_mm: f64,
     level: bool,
+    guard: Option<&Array3<u8>>,
+    reshape: bool,
 ) -> Roi {
     let level_frame = level.then(|| ear_frame(frame));
     let frame = level_frame.as_ref().unwrap_or(frame);
@@ -430,12 +513,15 @@ fn build_face_roi(
     // Hull depth bounds are anchored to the measured eye-skin surface: when
     // lifted landmarks sit `eye_bias_mm` inside the head (thick-slice
     // scans), both bounds shift anteriorly by that amount.
-    let w = [
-        eye_bias_mm - params.depth_behind_mm,
-        eye_bias_mm + params.depth_front_mm,
-    ];
-    let (face_wall, seen_through_air) =
-        build_face_wall(volume, frame, params, eye_bias_mm, u, v, w);
+    // `deep` (only with a guard): the hull floor moves back by the extra
+    // depth; the guard, not the floor, is what keeps the brain safe.
+    let floor = match guard {
+        Some(_) => params.depth_behind_mm + params.deep_depth_mm,
+        None => params.depth_behind_mm,
+    };
+    let w = [eye_bias_mm - floor, eye_bias_mm + params.depth_front_mm];
+    let (face_wall, seen_through_air, face_warp) =
+        build_face_wall(volume, frame, params, eye_bias_mm, u, v, w, guard, reshape);
     Roi {
         label: "face",
         u,
@@ -444,6 +530,7 @@ fn build_face_roi(
         basis: level_frame.clone(),
         wall: None,
         face_wall: Some(face_wall),
+        face_warp,
         seen_through_air: Some(seen_through_air),
         detected: None,
         protrusion_mm: None,
@@ -474,6 +561,7 @@ fn build_face_roi(
 /// Depth is measured along the forward axis, which meets the skin
 /// obliquely almost everywhere, so the depth normal to the skin is at most
 /// `skin_depth_mm`.
+#[allow(clippy::too_many_arguments)]
 fn build_face_wall(
     volume: &Volume,
     frame: &FaceFrame,
@@ -482,8 +570,16 @@ fn build_face_wall(
     u: [f64; 2],
     v: [f64; 2],
     w: [f64; 2],
-) -> (FaceWall, bool) {
+    guard: Option<&Array3<u8>>,
+    reshape: bool,
+) -> (FaceWall, bool, Option<FaceWarp>) {
     let ed = frame.eye_dist;
+    // `deep`: below-skin depth of the wall, and how far a protrusion may be
+    // cut down (skin-deep stops at the eye-skin plane, deep at the hull).
+    let (depth, nose_floor) = match guard {
+        Some(_) => (params.deep_depth_mm, w[0]),
+        None => (params.skin_depth_mm, eye_bias_mm),
+    };
     let thr = surface_threshold(volume, params.surface_threshold);
     let step = FACE_GRID_STEP_MM;
     let nu = ((u[1] - u[0]) / step).ceil() as usize + 1;
@@ -615,9 +711,7 @@ fn build_face_wall(
                 // (`deface_auto` refuses such volumes outright).
                 height[i].clamp(w[0], w[1])
             } else if protrudes[i] {
-                (baseline[i] - params.skin_depth_mm)
-                    .max(eye_bias_mm)
-                    .clamp(w[0], w[1])
+                (baseline[i] - depth).max(nose_floor).clamp(w[0], w[1])
             } else if !is_skin[i] {
                 // Entered the scan straight into tissue: a FOV cut. In the
                 // nose/lips zone that is a clipped nose tip, safe to take
@@ -630,21 +724,245 @@ fn build_face_wall(
                     height[i].clamp(w[0], w[1])
                 }
             } else {
-                (skin_height[i] - params.skin_depth_mm).clamp(w[0], w[1])
+                (skin_height[i] - depth).clamp(w[0], w[1])
             }
         })
         .collect();
-    (
-        FaceWall {
-            u0: u[0],
-            v0: v[0],
+    let mut wall: Vec<f64> = wall;
+    // `deep`: every column stops in front of the protected set (the brain
+    // and its margin). The march runs from the front of the hull, so a
+    // column never passes through protected voxels to tissue behind them.
+    if let Some(protect) = guard {
+        let [nx, ny, nz] = volume.shape();
+        for (i, wl) in wall.iter_mut().enumerate() {
+            let (cu, cv) = (u[0] + (i / nv) as f64 * step, v[0] + (i % nv) as f64 * step);
+            let mut d = w[1];
+            while d >= *wl {
+                let p = crate::affine::add(
+                    frame.origin,
+                    crate::affine::add(
+                        crate::affine::scale(frame.right, cu),
+                        crate::affine::add(
+                            crate::affine::scale(frame.up, cv),
+                            crate::affine::scale(frame.forward, d),
+                        ),
+                    ),
+                );
+                let q = crate::affine::apply(&volume.world_to_voxel, p);
+                let (a, b, c) = (q[0].round(), q[1].round(), q[2].round());
+                if a >= 0.0
+                    && b >= 0.0
+                    && c >= 0.0
+                    && (a as usize) < nx
+                    && (b as usize) < ny
+                    && (c as usize) < nz
+                    && protect[[a as usize, b as usize, c as usize]] != 0
+                {
+                    *wl = (d + FACE_MARCH_STEP_MM).min(w[1]);
+                    break;
+                }
+                d -= FACE_MARCH_STEP_MM;
+            }
+        }
+    }
+    let warp = (reshape && seen_through_air).then(|| {
+        face_warp(
+            ed,
+            u,
+            v,
             step,
             nu,
             nv,
-            wall,
-        },
-        seen_through_air,
-    )
+            &skin_height,
+            &is_skin,
+            &wall,
+            eye_bias_mm,
+        )
+    });
+    let fw = FaceWall {
+        u0: u[0],
+        v0: v[0],
+        step,
+        nu,
+        nv,
+        wall,
+    };
+    if let Ok(prefix) = std::env::var("RADVEIL_FACE_DEBUG") {
+        let nan = |x: &[f64]| -> Vec<Option<f64>> {
+            x.iter().map(|v| v.is_finite().then_some(*v)).collect()
+        };
+        let dump = serde_json::json!({
+            "eye_dist": ed, "eye_bias": eye_bias_mm, "nu": nu, "nv": nv, "u0": u[0], "v0": v[0],
+            "step": step, "w": w, "height": nan(&skin_height), "wall": nan(&fw.wall),
+            "target": warp.as_ref().map(|t| nan(&t.target)),
+            "mouth_v": mouth_v, "seen_through_air": seen_through_air,
+        });
+        let _ = std::fs::write(format!("{prefix}_face.json"), dump.to_string());
+    }
+    (fw, seen_through_air, warp)
+}
+
+/// Generic face surface for `reshape`: height along the forward axis above
+/// the eye-skin plane, in units of the inter-eye distance, at face-frame
+/// position (x, y) in the same units (x across the face, y up, origin
+/// between the eyes). A sum of smooth bumps with hand-rounded constants: a
+/// rounded head, eye sockets, nose ridge and tip, lips, jaw. It is one
+/// shape for everybody and holds no subject's data: the bump centres and
+/// widths are set by hand, the amplitudes are a least-squares fit, rounded
+/// to 0.01, to the mean skin height of 40 IXI T1 volumes (2.3 mm RMS from
+/// that mean).
+pub fn generic_face(x: f64, y: f64) -> f64 {
+    let g = |cx: f64, cy: f64, sx: f64, sy: f64| {
+        (-((x - cx) / sx).powi(2) - ((y - cy) / sy).powi(2)).exp()
+    };
+    let mut z = 0.0;
+    for &(amp, cx, cy, sx, sy) in GENERIC_FACE_BUMPS {
+        z += amp * g(cx, cy, sx, sy);
+        if cx != 0.0 {
+            z += amp * g(-cx, cy, sx, sy);
+        }
+    }
+    z + GENERIC_FACE_QUAD.0 * x * x + GENERIC_FACE_QUAD.1 * x.powi(4) + GENERIC_FACE_QUAD.2 * y
+}
+
+/// (amplitude, centre x, centre y, sigma x, sigma y), units of the
+/// inter-eye distance; a bump off the midline is mirrored.
+const GENERIC_FACE_BUMPS: &[(f64, f64, f64, f64, f64)] = &[
+    (0.21, 0.00, -0.15, 0.16, 0.35),  // nose ridge
+    (0.43, 0.00, -0.47, 0.17, 0.17),  // nose tip
+    (-0.07, 0.00, 0.10, 0.20, 0.20),  // nasion
+    (-0.07, 0.50, 0.00, 0.25, 0.15),  // eye sockets
+    (0.13, 0.45, 0.30, 0.35, 0.15),   // brows
+    (0.08, 0.00, -0.97, 0.30, 0.12),  // lips
+    (-0.12, 0.00, -1.45, 0.30, 0.20), // below the lips
+    (0.15, 0.00, 0.60, 0.60, 0.30),   // forehead
+    (-0.30, 0.60, -1.20, 0.30, 0.40), // jaw taper
+];
+/// Head roundness: coefficients of x^2, x^4 and y.
+const GENERIC_FACE_QUAD: (f64, f64, f64) = (-0.24, -0.25, 0.12);
+
+/// `reshape` only moves columns this far (x inter-eye distance) inside the
+/// hull's sides and away from columns it cannot move (no skin, a FOV cut);
+/// in between the displacement fades with a smoothstep.
+const WARP_FADE: f64 = 0.25;
+/// Thinnest tissue column `reshape` moves, and thinnest it leaves, mm.
+const WARP_MIN_COLUMN_MM: f64 = 2.0;
+
+/// Target skin height per column for `reshape`: the generic face, set on
+/// the subject's own face by a least-squares plane (offset and two tilts
+/// are all it takes from the subject), blended into the measured skin
+/// towards the hull's sides.
+#[allow(clippy::too_many_arguments)]
+fn face_warp(
+    ed: f64,
+    u: [f64; 2],
+    v: [f64; 2],
+    step: f64,
+    nu: usize,
+    nv: usize,
+    skin: &[f64],
+    is_skin: &[bool],
+    wall: &[f64],
+    eye_bias_mm: f64,
+) -> FaceWarp {
+    let n = nu * nv;
+    let cell = |i: usize| (u[0] + (i / nv) as f64 * step, v[0] + (i % nv) as f64 * step);
+    let movable: Vec<bool> = (0..n)
+        .map(|i| is_skin[i] && skin[i].is_finite() && skin[i] - wall[i] >= WARP_MIN_COLUMN_MM)
+        .collect();
+    // Chamfer distance (cells) to the nearest column that cannot move.
+    let mut dist: Vec<f64> = movable
+        .iter()
+        .map(|&m| if m { f64::INFINITY } else { 0.0 })
+        .collect();
+    let (a, b) = (1.0, std::f64::consts::SQRT_2);
+    for pass in 0..2 {
+        for k in 0..n {
+            let i = if pass == 0 { k } else { n - 1 - k };
+            let (r, c) = ((i / nv) as isize, (i % nv) as isize);
+            let s: isize = if pass == 0 { -1 } else { 1 };
+            for (dr, dc, cost) in [(s, 0, a), (0, s, a), (s, s, b), (s, -s, b)] {
+                let (r2, c2) = (r + dr, c + dc);
+                if r2 >= 0 && c2 >= 0 && (r2 as usize) < nu && (c2 as usize) < nv {
+                    let d = dist[r2 as usize * nv + c2 as usize] + cost;
+                    if d < dist[i] {
+                        dist[i] = d;
+                    }
+                }
+            }
+        }
+    }
+    let model: Vec<f64> = (0..n)
+        .map(|i| {
+            let (cu, cv) = cell(i);
+            eye_bias_mm + ed * generic_face(cu / ed, cv / ed)
+        })
+        .collect();
+    // Least-squares plane skin - model = p0 + p1 u + p2 v over the movable
+    // columns (normal equations, 3 x 3).
+    let mut ata = [[0.0f64; 3]; 3];
+    let mut atb = [0.0f64; 3];
+    for i in 0..n {
+        if movable[i] {
+            let (cu, cv) = cell(i);
+            let row = [1.0, cu / ed, cv / ed];
+            for r in 0..3 {
+                for c in 0..3 {
+                    ata[r][c] += row[r] * row[c];
+                }
+                atb[r] += row[r] * (skin[i] - model[i]);
+            }
+        }
+    }
+    let plane = solve3(ata, atb).unwrap_or([0.0; 3]);
+    let fade = (WARP_FADE * ed).max(step);
+    let smooth = |x: f64| {
+        let t = x.clamp(0.0, 1.0);
+        t * t * (3.0 - 2.0 * t)
+    };
+    let mut target = vec![f64::NAN; n];
+    let mut skin_out = vec![f64::NAN; n];
+    for i in 0..n {
+        if !movable[i] {
+            // Not moved: skin == target == wall makes the map the identity.
+            skin_out[i] = wall[i];
+            target[i] = wall[i];
+            continue;
+        }
+        let (cu, cv) = cell(i);
+        let edge = (cu - u[0]).min(u[1] - cu).min(cv - v[0]).min(v[1] - cv);
+        let alpha = smooth(edge / fade) * smooth(dist[i] * step / fade);
+        let goal = model[i] + plane[0] + plane[1] * cu / ed + plane[2] * cv / ed;
+        let t = skin[i] + alpha * (goal - skin[i]);
+        skin_out[i] = skin[i];
+        target[i] = t.max(wall[i] + WARP_MIN_COLUMN_MM);
+    }
+    FaceWarp {
+        skin: skin_out,
+        target,
+    }
+}
+
+/// Solve a 3 x 3 linear system (Cramer); `None` when singular.
+fn solve3(m: [[f64; 3]; 3], b: [f64; 3]) -> Option<[f64; 3]> {
+    let det = |m: &[[f64; 3]; 3]| {
+        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+    };
+    let d = det(&m);
+    if d.abs() < 1e-9 {
+        return None;
+    }
+    let mut out = [0.0; 3];
+    for (k, o) in out.iter_mut().enumerate() {
+        let mut mk = m;
+        for r in 0..3 {
+            mk[r][k] = b[r];
+        }
+        *o = det(&mk) / d;
+    }
+    Some(out)
 }
 
 /// How deep the lifted eye landmarks sit below the true skin surface, mm.
@@ -1458,6 +1776,7 @@ fn build_ear_roi(
             wall,
         }),
         face_wall: None,
+        face_warp: None,
         seen_through_air: None,
         detected: Some(detected),
         protrusion_mm,
@@ -1566,6 +1885,12 @@ pub struct DefacePlan {
     /// Voxels that must never be rewritten (the brain guard), same grid
     /// as the volume.
     protect: Option<std::sync::Arc<Array3<u8>>>,
+    /// See [`DefaceParams::reshape`]: [`apply`] moves the face tissue
+    /// before rewriting. Escalation plans ([`DefacePlan::face_only`]) drop
+    /// it: the move is done once, on the original volume.
+    reshape: bool,
+    /// Whether the face region was built with `deep` (and a protected set).
+    deep: bool,
 }
 
 impl DefacePlan {
@@ -1611,6 +1936,7 @@ impl DefacePlan {
                 .cloned()
                 .collect(),
             region: Region::Face,
+            reshape: false,
             ..self.clone()
         }
     }
@@ -1618,6 +1944,18 @@ impl DefacePlan {
 
 /// Measure the ROIs for `params` on `volume` (see [`DefacePlan`]).
 pub fn plan(volume: &Volume, frame: &FaceFrame, params: &DefaceParams) -> DefacePlan {
+    plan_guarded(volume, frame, params, None)
+}
+
+/// [`plan`] with a protected set known up front (the brain guard): the
+/// plan never rewrites those voxels, and `params.deep` may extend the face
+/// region down to them.
+pub fn plan_guarded(
+    volume: &Volume,
+    frame: &FaceFrame,
+    params: &DefaceParams,
+    protect: Option<Array3<u8>>,
+) -> DefacePlan {
     let resolved = params.resolve(frame.eye_dist);
     let mut rois = Vec::new();
     let mut eye_bias_mm = 0.0;
@@ -1637,6 +1975,8 @@ pub fn plan(volume: &Volume, frame: &FaceFrame, params: &DefaceParams) -> Deface
             &resolved,
             eye_bias_mm,
             params.level_face,
+            protect.as_ref().filter(|_| params.deep),
+            params.reshape,
         ));
     }
     if params.region.includes_ears() {
@@ -1657,7 +1997,9 @@ pub fn plan(volume: &Volume, frame: &FaceFrame, params: &DefaceParams) -> Deface
                 resolved.surface_threshold,
             ))
         }),
-        protect: None,
+        deep: params.deep && params.region.includes_face() && protect.is_some(),
+        protect: protect.map(std::sync::Arc::new),
+        reshape: params.reshape,
     }
 }
 
@@ -1706,6 +2048,13 @@ pub fn apply(
     // Blur-family groups run before fills, so a blur kernel reaching past
     // its own region samples original tissue rather than another region's
     // cut or block fill.
+    if plan.reshape {
+        if let Some(roi) = plan.rois.iter().find(|r| r.face_warp.is_some()) {
+            if let Some(b) = boxes.iter().find(|b| b.3 == FACE && b.2 > 0) {
+                warp_face(volume, frame, roi, &mask, b.0, b.1, cut_fill);
+            }
+        }
+    }
     let mut groups = [(FACE, params_mode), (EARS, ear_mode)];
     groups.sort_by_key(|g| matches!(g.1, DefaceMode::Cut | DefaceMode::Block));
     for (label, mode) in groups {
@@ -1781,6 +2130,69 @@ pub fn apply(
     (report, mask)
 }
 
+/// `reshape`: resample the face-labelled voxels of `mask` so that each
+/// column's tissue between the back wall and the skin fills the span
+/// between the wall and the target surface (see [`face_warp`]). Sources lie
+/// on the same column, so the displacement is along the forward axis only
+/// and is zero at the wall. Only masked voxels are written.
+fn warp_face(
+    volume: &mut Volume,
+    frame: &FaceFrame,
+    roi: &Roi,
+    mask: &Array3<u8>,
+    lo: [isize; 3],
+    hi: [isize; 3],
+    outside: f32,
+) {
+    use rayon::prelude::*;
+    let frame = roi.basis.as_ref().unwrap_or(frame);
+    let (Some(fw), Some(warp)) = (roi.face_wall.as_ref(), roi.face_warp.as_ref()) else {
+        return;
+    };
+    let shape = volume.shape();
+    let vol = &*volume;
+    let planes: Vec<usize> = (lo[0] as usize..=hi[0] as usize).collect();
+    let moved: Vec<([usize; 3], f32)> = planes
+        .par_iter()
+        .flat_map_iter(|&i| {
+            let mut out = Vec::new();
+            for j in lo[1] as usize..=hi[1] as usize {
+                for k in lo[2] as usize..=hi[2] as usize {
+                    if mask[[i, j, k]] != FACE {
+                        continue;
+                    }
+                    let wp = crate::affine::apply(&vol.affine, [i as f64, j as f64, k as f64]);
+                    let f = frame.to_face(wp);
+                    let b = fw.lerp(&fw.wall, f[0], f[1]);
+                    let h = fw.lerp(&warp.skin, f[0], f[1]);
+                    let t = fw.lerp(&warp.target, f[0], f[1]);
+                    if f[2] <= b || h - b < 0.5 || t - b < 0.5 {
+                        continue;
+                    }
+                    let src_w = if f[2] <= t {
+                        b + (f[2] - b) * (h - b) / (t - b)
+                    } else {
+                        f[2] + (h - t)
+                    };
+                    let shift = src_w - f[2];
+                    if shift.abs() < 1e-3 {
+                        continue;
+                    }
+                    let p = crate::affine::add(wp, crate::affine::scale(frame.forward, shift));
+                    let q = crate::affine::apply(&vol.world_to_voxel, p);
+                    let inside = (0..3).all(|a| q[a] >= 0.0 && q[a] <= (shape[a] - 1) as f64);
+                    let val = if inside { vol.sample_voxel(q) } else { outside };
+                    out.push(([i, j, k], val));
+                }
+            }
+            out
+        })
+        .collect();
+    for (idx, val) in moved {
+        volume.data[idx] = val;
+    }
+}
+
 /// The anonymization mask of a [`DefacePlan`] (1 = a voxel [`apply`] would
 /// rewrite), leaving the volume untouched: an escape hatch for callers who
 /// want to anonymize or review the region themselves. Nothing is verified;
@@ -1849,6 +2261,8 @@ fn mark_plan(
         face_seen_through_air: plan.face_seen_through_air(),
         protected_voxels_spared: plan.protect.as_ref().map(|_| spared),
         air_voxels_spared: None,
+        brain_guard_mm: None,
+        deep: plan.deep,
     };
     (report, mask, boxes)
 }

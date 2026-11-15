@@ -8,8 +8,8 @@ use ndarray::Array3;
 
 use nifti::NiftiHeader;
 use radveil_core::{
-    apply, deface, face_frame_from_landmarks, plan, plan_mask, render_view, DefaceMode,
-    DefaceParams, Region, RenderParams, Volume,
+    apply, deface, face_frame_from_landmarks, plan, plan_guarded, plan_mask, render_view,
+    DefaceMode, DefaceParams, Region, RenderParams, Volume,
 };
 
 /// Build a synthetic "head": an ellipsoid with nose- and ear-like bumps,
@@ -1059,5 +1059,97 @@ fn spare_air_leaves_far_air_untouched() {
             }
         }
     }
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// The opt-ins `deep` and `reshape`: off by default and inert without
+/// a protected set; with one, the region goes deeper but never into it, and
+/// nothing outside the returned mask changes.
+#[test]
+fn deep_and_reshape_respect_guard_and_mask() {
+    let dir = std::env::temp_dir().join(format!("radveil_test_deep_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = make_phantom(&dir);
+    let mut lm: Vec<Option<[f64; 3]>> = vec![None; 68];
+    for (range, p) in [
+        (36..=41, [-22.0, 62.0, 10.0]),
+        (42..=47, [22.0, 62.0, 10.0]),
+        (30..=30, [0.0, 80.0, -10.0]),
+        (48..=67, [0.0, 40.0, -35.0]),
+        (8..=8, [0.0, 50.0, -55.0]),
+    ] {
+        for i in range {
+            lm[i] = Some(p);
+        }
+    }
+    let frame = face_frame_from_landmarks(&lm).unwrap();
+    let orig = Volume::load(&path).unwrap();
+    // A "brain" (with its margin) inside the head: its front is 20 mm
+    // below the facial skin, closer than the deep depth.
+    let protect = Array3::from_shape_fn(orig.data.dim(), |(i, j, k)| {
+        let w = radveil_core::affine::apply(&orig.affine, [i as f64, j as f64, k as f64]);
+        let e =
+            (w[0] / 45.0).powi(2) + ((w[1] + 5.0) / 50.0).powi(2) + ((w[2] - 10.0) / 55.0).powi(2);
+        u8::from(e <= 1.0)
+    });
+    let base = DefaceParams {
+        mode: DefaceMode::Blur,
+        region: Region::Face,
+        ..Default::default()
+    };
+    let deep = DefaceParams {
+        deep: true,
+        ..base.clone()
+    };
+    let (_, mask_default) = plan_mask(&orig, &frame, &plan(&orig, &frame, &base), base.mode);
+    // Without a protected set `deep` changes nothing.
+    let (_, mask_unguarded) = plan_mask(&orig, &frame, &plan(&orig, &frame, &deep), base.mode);
+    assert_eq!(mask_default, mask_unguarded);
+
+    let count = |m: &Array3<u8>| m.iter().filter(|&&x| x != 0).count();
+    for reshape in [false, true] {
+        let params = DefaceParams {
+            reshape,
+            ..deep.clone()
+        };
+        let mut v = Volume::load(&path).unwrap();
+        let p = plan_guarded(&v, &frame, &params, Some(protect.clone()));
+        let (_, mask) = apply(&mut v, &frame, &p, params.mode, None);
+        assert!(
+            count(&mask) > count(&mask_default) + 1000,
+            "deep region is not deeper: {} vs {}",
+            count(&mask),
+            count(&mask_default)
+        );
+        let mut changed = 0usize;
+        for (idx, &m) in mask.indexed_iter() {
+            if m == 1 {
+                assert_eq!(protect[idx], 0, "protected voxel in the region");
+                changed += usize::from(v.data[idx] != orig.data[idx]);
+            } else {
+                assert_eq!(
+                    v.data[idx], orig.data[idx],
+                    "voxel outside the mask changed"
+                );
+            }
+        }
+        assert!(changed > 1000);
+    }
+    // `reshape` moves tissue before the mode rewrites it: with a cut the
+    // region is emptied either way, so on its own (blur with a zero-width
+    // kernel) it must still change tissue, and only inside the mask.
+    let params = DefaceParams {
+        reshape: true,
+        blur_sigma_mm: Some(0.01),
+        ..deep.clone()
+    };
+    let mut v = Volume::load(&path).unwrap();
+    let p = plan_guarded(&v, &frame, &params, Some(protect.clone()));
+    let (_, mask) = apply(&mut v, &frame, &p, params.mode, None);
+    let moved = mask
+        .indexed_iter()
+        .filter(|(idx, &m)| m == 1 && v.data[*idx] != orig.data[*idx])
+        .count();
+    assert!(moved > 100, "reshape moved nothing ({moved} voxels)");
     std::fs::remove_dir_all(&dir).ok();
 }

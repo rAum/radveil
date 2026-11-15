@@ -37,7 +37,7 @@ typedef struct RadveilDefaceParams {
     double blur_sigma_mm;
     double adaptive_factor;
     double skin_depth_mm;  /* depth below the measured skin; ~4.5 mm auto */
-    uint32_t options;      /* RADVEIL_SPARE_AIR | _LEVEL_FACE | _PARTIAL_FACE | _AUTO_THRESHOLD */
+    uint32_t options;      /* RADVEIL_SPARE_AIR | _LEVEL_FACE | _PARTIAL_FACE | _AUTO_THRESHOLD | _DEEP | _RESHAPE */
 } RadveilDefaceParams;
 
 /* RadveilDefaceParams.options (opt-in, default off):
@@ -55,6 +55,14 @@ typedef struct RadveilDefaceParams {
  *                       noisy, dim scans (e.g. infants): retry at higher
  *                       surface thresholds when no face is found */
 #define RADVEIL_AUTO_THRESHOLD 8u
+/*   RADVEIL_DEEP (radveil_deface_auto / radveil_anonymization_mask; needs the
+ *                       brain extraction) extend the face region below the
+ *                       skin, down to 0.40 x the inter-eye distance, stopping
+ *                       5 mm in front of the extracted brain
+ *   RADVEIL_RESHAPE     with RADVEIL_DEEP (experimental): move the face tissue
+ *                       onto a generic face surface before rewriting it */
+#define RADVEIL_DEEP 16u
+#define RADVEIL_RESHAPE 32u
 
 /* Ear-ROI geometry for radveil_deface_region; any negative/NaN field = auto
  * (scaled from detected inter-eye distance). Ears are located by surface

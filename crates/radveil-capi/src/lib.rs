@@ -238,7 +238,8 @@ pub struct RadveilDefaceParams {
     /// Depth below the measured skin that the face ROI reaches, mm.
     pub skin_depth_mm: f64,
     /// Opt-in bits: [`RADVEIL_SPARE_AIR`], [`RADVEIL_LEVEL_FACE`],
-    /// [`RADVEIL_PARTIAL_FACE`], [`RADVEIL_AUTO_THRESHOLD`].
+    /// [`RADVEIL_PARTIAL_FACE`], [`RADVEIL_AUTO_THRESHOLD`],
+    /// [`RADVEIL_DEEP`], [`RADVEIL_RESHAPE`].
     pub options: u32,
 }
 
@@ -255,6 +256,14 @@ pub const RADVEIL_PARTIAL_FACE: u32 = 4;
 /// radveil_anonymization_mask only): noisy, dim scans (e.g. infants) are
 /// retried at higher surface thresholds when no face is found.
 pub const RADVEIL_AUTO_THRESHOLD: u32 = 8;
+/// `RadveilDefaceParams.options` (radveil_deface_auto and
+/// radveil_anonymization_mask only; needs the brain extraction): extend the
+/// face region below the skin, down to 0.40 x the inter-eye distance,
+/// stopping 5 mm in front of the extracted brain.
+pub const RADVEIL_DEEP: u32 = 16;
+/// `RadveilDefaceParams.options`, with `RADVEIL_DEEP` (experimental): move
+/// the face tissue onto a generic face surface before rewriting it.
+pub const RADVEIL_RESHAPE: u32 = 32;
 
 /// Ear-ROI geometry for `radveil_deface_region`; any negative/NaN field
 /// means "auto" (scaled from the detected inter-eye distance). Ears are
@@ -483,6 +492,8 @@ unsafe fn build_params(
         dp.skin_depth_mm = opt(p.skin_depth_mm);
         dp.spare_air = p.options & RADVEIL_SPARE_AIR != 0;
         dp.level_face = p.options & RADVEIL_LEVEL_FACE != 0;
+        dp.deep = p.options & RADVEIL_DEEP != 0;
+        dp.reshape = p.options & RADVEIL_RESHAPE != 0;
     }
     if !ear_params.is_null() {
         let e = &*ear_params;

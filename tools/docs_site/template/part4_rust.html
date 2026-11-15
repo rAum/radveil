@@ -94,7 +94,7 @@ verification). <code>DefaceParams</code> derives <code>Default</code>: <code>mod
 (<code>Blur</code>, <code>Adaptive</code>, <code>Cut</code>, <code>Block</code>), <code>ear_mode:
 Option&lt;DefaceMode&gt;</code> (<code>None</code> = same as <code>mode</code>), <code>region: Region</code>
 (<code>Face</code>, <code>Ears</code>, <code>FaceAndEars</code>), and every geometry field of the
-<a href="#params">parameter table</a> as <code>Option&lt;f64&gt;</code> (<code>None</code> = auto). The opt-ins <code>spare_air</code> and <code>level_face</code> are <code>bool</code> (default <code>false</code>). Both enums
+<a href="#params">parameter table</a> as <code>Option&lt;f64&gt;</code> (<code>None</code> = auto). The opt-ins <code>spare_air</code>, <code>level_face</code>, <code>deep</code> and <code>reshape</code> are <code>bool</code> (default <code>false</code>); <code>deep_depth_mm</code> and <code>deep_guard_mm</code> are <code>Option&lt;f64&gt;</code>. Both enums
 implement <code>FromStr</code> (<code>"adaptive".parse()</code>, <code>"face+ears".parse()</code>).</p>
 </div></div>
 

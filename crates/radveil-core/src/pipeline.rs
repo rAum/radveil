@@ -9,9 +9,7 @@
 //! [`MediaPipeDetector`]: crate::detect::MediaPipeDetector
 
 use crate::affine::{add, cross, dot, norm, scale, sub, Vec3};
-use crate::deface::{
-    apply, plan, plan_mask, DefaceMode, DefaceParams, DefacePlan, DefaceReport, Region,
-};
+use crate::deface::{apply, plan_mask, DefaceMode, DefaceParams, DefacePlan, DefaceReport, Region};
 use crate::landmarks::{combine_views, face_frame_from_landmarks, unproject, FaceFrame};
 use crate::render::{render_view, RenderParams, RenderView};
 use crate::volume::Volume;
@@ -622,7 +620,8 @@ pub fn deface_auto(
     let render = |vol: &Volume, yaw: f64, pitch: f64| render_view(vol, yaw, pitch, &rp);
     let frame = face.frame;
     let track_mask = params.return_mask || brain.is_some();
-    let (report, mut mask) = apply(vol, &frame, &plan, params.deface.mode, None);
+    let (mut report, mut mask) = apply(vol, &frame, &plan, params.deface.mode, None);
+    report.brain_guard_mm = guard_margin(params);
 
     let mut out = AutoReport {
         views_detected: face.views.len(),
@@ -846,14 +845,10 @@ fn prepare(
     // The cut follows the skin the detector saw.
     deface.surface_threshold = Some(render_threshold(vol, params));
     deface.level_face |= params.partial_face;
-    let plan = plan(vol, &face.frame, &deface);
-    if plan.face_seen_through_air() == Some(false) {
-        return Err("the detected face is not seen through air: it lies on a \
-                    field-of-view cut, not on skin; refusing to modify the volume"
-            .into());
-    }
     // The guard and the check need the brain of the *original* volume.
-    let brain = if params.brain_check || params.brain_guard {
+    // `deep` extends the region down to the guard, so it implies it.
+    let guarded = guard_margin(params).is_some();
+    let brain = if params.brain_check || guarded {
         #[cfg(feature = "synthstrip")]
         {
             let params = crate::deskull::DeskullParams {
@@ -863,18 +858,34 @@ fn prepare(
             Some(crate::deskull::brain_mask(vol, &params)?)
         }
         #[cfg(not(feature = "synthstrip"))]
-        return Err("brain_check and brain_guard need the `synthstrip` feature".into());
+        return Err("brain_check, brain_guard and deep need the `synthstrip` feature".into());
     } else {
         None
     };
-    let plan = match &brain {
-        Some((b, _)) if params.brain_guard => {
-            plan.with_protected(dilate_mm(b, vol.spacing, params.brain_guard_mm))
-        }
-        _ => plan,
+    let protect = match &brain {
+        Some((b, _)) => guard_margin(params).map(|mm| dilate_mm(b, vol.spacing, mm)),
+        _ => None,
     };
+    let plan = crate::deface::plan_guarded(vol, &face.frame, &deface, protect);
+    if plan.face_seen_through_air() == Some(false) {
+        return Err("the detected face is not seen through air: it lies on a \
+                    field-of-view cut, not on skin; refusing to modify the volume"
+            .into());
+    }
     let brain = if params.brain_check { brain } else { None };
     Ok((face, plan, brain, params.clone()))
+}
+
+/// Margin of the protected set around the brain, mm, or `None` without
+/// one: the brain guard's margin, `deep`'s, or the larger of the two.
+fn guard_margin(params: &AutoParams) -> Option<f64> {
+    let deep = params.deface.deep && params.deface.region.includes_face();
+    match (params.brain_guard, deep) {
+        (false, false) => None,
+        (true, false) => Some(params.brain_guard_mm),
+        (false, true) => Some(params.deface.deep_guard()),
+        (true, true) => Some(params.brain_guard_mm.max(params.deface.deep_guard())),
+    }
 }
 
 /// `mask` grown by `mm` in every direction (a box of the per-axis voxel
@@ -933,7 +944,8 @@ pub fn anonymization_mask(
     params: &AutoParams,
 ) -> Result<AutoReport, String> {
     let (face, plan, brain, _) = prepare(vol, det, params)?;
-    let (report, mask) = plan_mask(vol, &face.frame, &plan, params.deface.mode);
+    let (mut report, mask) = plan_mask(vol, &face.frame, &plan, params.deface.mode);
+    report.brain_guard_mm = guard_margin(params);
     let brain = brain.map(|(b, r)| brain_check(vol, &b, &r, &mask));
     Ok(AutoReport {
         views_detected: face.views.len(),

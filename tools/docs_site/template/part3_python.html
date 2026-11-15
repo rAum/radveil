@@ -49,7 +49,7 @@ anonymize, verify. Same code as <code>radveil auto</code>.</p>
 <tr><td><code>auto_threshold</code></td><td class="d">Opt-in: noisy, dim scans (e.g. infants) are retried at higher surface thresholds when no face is found.</td></tr>
 <tr><td><code>threshold_frac</code>, <code>threshold</code></td><td class="d">Skin surface threshold: fraction of the 99th percentile, or an absolute value. CT is detected automatically (−400 HU).</td></tr>
 <tr><td><code>return_mask</code></td><td class="d">Add the uint8 <code>mask</code> to the report.</td></tr>
-<tr><td><code>**deface_kwargs</code></td><td class="d"><code>ear_mode</code> and geometry overrides from the <a href="#params">parameter table</a>, e.g. <code>skin_depth_mm=3.5</code>, or the opt-ins <code>level_face=True</code> and <code>spare_air=True</code>. Unknown names raise <code>ValueError</code>.</td></tr>
+<tr><td><code>**deface_kwargs</code></td><td class="d"><code>ear_mode</code> and geometry overrides from the <a href="#params">parameter table</a>, e.g. <code>skin_depth_mm=3.5</code>, or the opt-ins <code>level_face=True</code>, <code>spare_air=True</code>, <code>deep=True</code> and <code>reshape=True</code>. Unknown names raise <code>ValueError</code>.</td></tr>
 </table>
 <h4>Raises</h4><p><code>RuntimeError</code> when no validated face is found; the volume is then untouched.</p>
 </div></div>

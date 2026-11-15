@@ -149,6 +149,24 @@ enum Cmd {
         /// chin are not hidden behind each other (off by default).
         #[arg(long)]
         level_face: bool,
+        /// Depth-adaptive face region: also rewrite the tissue below the
+        /// skin, down to --deep-depth, stopping --deep-guard-mm in front of
+        /// the extracted brain (implies a brain extraction, ~3 s; off by
+        /// default).
+        #[arg(long)]
+        deep: bool,
+        /// Depth below the skin for --deep, mm (default: auto, 0.40 x
+        /// inter-eye distance).
+        #[arg(long)]
+        deep_depth: Option<f64>,
+        /// Brain margin for --deep, mm (with --brain-guard too, the larger
+        /// margin applies).
+        #[arg(long, default_value_t = radveil_core::deface::DEEP_GUARD_MM)]
+        deep_guard_mm: f64,
+        /// EXPERIMENTAL, with --deep: move the face tissue onto a generic
+        /// face surface before the mode rewrites it (off by default).
+        #[arg(long)]
+        reshape: bool,
         /// gzip level for .nii.gz output (1 = fast).
         #[arg(long, default_value_t = 1)]
         gzip_level: u32,
@@ -538,6 +556,10 @@ fn main() -> Result<()> {
             skin_depth,
             spare_air,
             level_face,
+            deep,
+            deep_depth,
+            deep_guard_mm,
+            reshape,
             gzip_level,
         } => {
             let mut v = Volume::load(&input).with_context(|| format!("loading {:?}", input))?;
@@ -556,6 +578,10 @@ fn main() -> Result<()> {
                     eye_surface_anchor: Some(!no_eye_anchor),
                     spare_air,
                     level_face,
+                    deep,
+                    deep_depth_mm: deep_depth,
+                    deep_guard_mm: Some(deep_guard_mm),
+                    reshape,
                     ..Default::default()
                 },
                 yaws: yaw,
@@ -608,8 +634,10 @@ fn main() -> Result<()> {
                 );
             }
             if let Some(spared) = rep.deface.protected_voxels_spared {
+                let mm = rep.deface.brain_guard_mm.unwrap_or(brain_guard_mm);
+                let deep = if rep.deface.deep { ", deep region" } else { "" };
                 eprintln!(
-                    "brain guard: on ({brain_guard_mm} mm), {spared} region voxel(s) kept untouched"
+                    "brain guard: on ({mm} mm{deep}), {spared} region voxel(s) kept untouched"
                 );
             }
             let brain_touched = match &rep.brain {

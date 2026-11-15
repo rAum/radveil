@@ -39,8 +39,8 @@ pub mod volume;
 #[cfg(any(feature = "synthstrip", feature = "rvbrain"))]
 pub use conform::{conform, normalise, ConformSpec, Conformed};
 pub use deface::{
-    apply, deface, plan, plan_mask, DefaceMode, DefaceParams, DefacePlan, DefaceReport, Region,
-    RoiReport,
+    apply, deface, plan, plan_guarded, plan_mask, DefaceMode, DefaceParams, DefacePlan,
+    DefaceReport, Region, RoiReport,
 };
 pub use deskull::{
     brain_mask, brain_mask_with, default_fill, deskull, strip, BrainExtractor, ClassicalExtractor,

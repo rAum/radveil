@@ -411,7 +411,18 @@ def deface_volume(
     whose orbits read as a face), the region is filled opaquely (`block`)
     as a final guaranteed step unless ``escalate_to_block=False``. The
     report records ``verify_rounds``, ``residual_detections`` and
-    ``escalated_to_block``. With ``brain_check=True`` the brain is
+    ``escalated_to_block``.
+
+    ``deep=True`` (opt-in) removes the face shape that survives below the
+    skin, where renders at higher iso-surfaces still find a recognisable
+    face after the skin-deep default: the region reaches ``deep_depth_mm``
+    (auto 0.40 x inter-eye distance, ~25 mm) below the skin and stops
+    ``deep_guard_mm`` (5 mm) in front of the brain, which it extracts for
+    that (~3 s, ~3 GB). ``reshape=True`` (experimental, with ``deep``) first
+    moves the face tissue onto a generic face surface. The report's
+    records ``deep`` and the ``brain_guard_mm`` used.
+
+    With ``brain_check=True`` the brain is
     extracted from the input (SynthStrip) and the report's ``brain`` block
     says how many brain voxels the anonymization modified (0 = untouched)
     and how close it came (``margin_mm``). ``partial_face=True`` (opt-in)
